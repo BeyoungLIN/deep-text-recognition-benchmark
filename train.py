@@ -11,6 +11,7 @@ from torch.nn import init
 from torch import optim
 import torch.utils.data
 import numpy as np
+import pandas as pd
 
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
@@ -244,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
     parser.add_argument('--character', type=str,
-                        default='0123456789abcdefghijklmnopqrstuvwxyz', help='character label')
+                        default='0123456789abcdefghijklmnopqrstuvwxyz', help='CN-s, CN-m, CN-l, or raw character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')
     parser.add_argument('--PAD', action='store_true', help='whether to keep ratio then pad for image resize')
     parser.add_argument('--data_filtering_off', action='store_true', help='for data_filtering_off mode')
@@ -271,7 +272,24 @@ if __name__ == '__main__':
     os.makedirs(f'./saved_models/{opt.exp_name}', exist_ok=True)
 
     """ vocab / character number configuration """
-    if opt.sensitive:
+
+    if opt.character in ['CN-s', 'CN-m', 'CN-l']:
+        if opt.character == 'CN-s':
+            with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
+                charset = chars.readlines()
+            charset = [c.strip() for c in charset]
+            opt.character = charset
+        else:
+            charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
+            if opt.character == 'CN-m':
+                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
+            if opt.character == 'CN-l':
+                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
+            charset = ''.join(charset)
+            opt.character = charset
+
+
+    elif opt.sensitive:
         # opt.character += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
 
