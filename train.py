@@ -6,9 +6,9 @@ import string
 import argparse
 
 import torch
-import torch.backends.cudnn as cudnn
-import torch.nn.init as init
-import torch.optim as optim
+from torch.backends import cudnn
+from torch.nn import init
+from torch import optim
 import torch.utils.data
 import numpy as np
 
