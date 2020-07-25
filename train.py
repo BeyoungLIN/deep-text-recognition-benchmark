@@ -291,15 +291,16 @@ if __name__ == '__main__':
             with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
                 charset = chars.readlines()
             charset = [c.strip() for c in charset]
-            opt.character = charset
         else:
             charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
             if opt.character == 'CN-m':
                 charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
-            if opt.character == 'CN-l':
+            elif opt.character == 'CN-l':
                 charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
-            charset = ''.join(charset)
-            opt.character = charset
+            else:
+                raise ValueError
+        charset = ''.join(charset)
+        opt.character = charset
 
 
     elif opt.sensitive:
