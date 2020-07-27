@@ -265,7 +265,11 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     if not opt.exp_name:
-        opt.exp_name = f'{opt.Transformation}-{opt.FeatureExtraction}-{opt.SequenceModeling}-{opt.Prediction}'
+        opt.exp_name = f'{opt.Transformation}-' \
+                       f'{opt.FeatureExtraction}-' \
+                       f'{opt.SequenceModeling}-' \
+                       f'{opt.Prediction}-' \
+                       f'{opt.character}'
         opt.exp_name += f'-Seed{opt.manualSeed}'
         # print(opt.exp_name)
 

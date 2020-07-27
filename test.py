@@ -5,7 +5,7 @@ import argparse
 import re
 
 import torch
-import torch.backends.cudnn as cudnn
+from torch.backends import cudnn
 import torch.utils.data
 import torch.nn.functional as F
 import numpy as np
