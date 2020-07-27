@@ -1,4 +1,5 @@
 import torch
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -7,7 +8,9 @@ class CTCLabelConverter(object):
 
     def __init__(self, character):
         # character (str): set of the possible characters.
+        list_token = ['[UNK]']
         dict_character = list(character)
+        dict_character = list_token + dict_character
 
         self.dict = {}
         for i, char in enumerate(dict_character):
@@ -32,7 +35,11 @@ class CTCLabelConverter(object):
         batch_text = torch.LongTensor(len(text), batch_max_length).fill_(0)
         for i, t in enumerate(text):
             text = list(t)
-            text = [self.dict[char] for char in text]
+            # text = [self.dict[char] for char in text]
+            text = [
+                self.dict[char] if self.dict.get(char) is not None else self.dict['[UNK]']
+                for char in text
+            ]
             batch_text[i][:len(text)] = torch.LongTensor(text)
         return (batch_text.to(device), torch.IntTensor(length).to(device))
 
@@ -58,7 +65,7 @@ class AttnLabelConverter(object):
     def __init__(self, character):
         # character (str): set of the possible characters.
         # [GO] for the start token of the attention decoder. [s] for end-of-sentence token.
-        list_token = ['[GO]', '[s]']  # ['[s]','[UNK]','[PAD]','[GO]']
+        list_token = ['[s]', '[UNK]', '[PAD]', '[GO]']  # ['[GO]', '[s]']
         list_character = list(character)
         self.character = list_token + list_character
 
@@ -86,7 +93,11 @@ class AttnLabelConverter(object):
         for i, t in enumerate(text):
             text = list(t)
             text.append('[s]')
-            text = [self.dict[char] for char in text]
+            # text = [self.dict[char] for char in text]
+            text = [
+                self.dict[char] if self.dict.get(char) is not None else self.dict['[UNK]']
+                for char in text
+            ]
             batch_text[i][1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
         return (batch_text.to(device), torch.IntTensor(length).to(device))
 
