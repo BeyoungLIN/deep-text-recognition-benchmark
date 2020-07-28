@@ -1,6 +1,8 @@
 import string
 import argparse
 
+import pandas as pd
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.utils.data
@@ -91,6 +93,7 @@ def demo(opt):
 
             log.close()
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_folder', required=True, help='path to image_folder which contains text images')
@@ -119,7 +122,24 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
-    if opt.sensitive:
+    if opt.character in ['CN-s', 'CN-m', 'CN-l']:
+        if opt.character == 'CN-s':
+            with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
+                charset = chars.readlines()
+            charset = [c.strip() for c in charset]
+        else:
+            charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
+            if opt.character == 'CN-m':
+                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
+            elif opt.character == 'CN-l':
+                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
+            else:
+                raise ValueError
+        charset = ''.join(charset)
+        opt.character = charset
+
+
+    elif opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
 
     cudnn.benchmark = True
