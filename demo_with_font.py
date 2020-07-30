@@ -140,6 +140,12 @@ if __name__ == '__main__':
                 raise ValueError
         charset = ''.join(charset)
         opt.character = charset
+    elif opt.character == 'shufa':
+        with open('charset/shufa_vocab.txt', 'r', encoding='utf-8') as chars:
+            charset = chars.readlines()
+        charset = [c.strip() for c in charset]
+        charset = ''.join(charset)
+        opt.character = charset
     elif opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
 
