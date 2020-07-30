@@ -261,8 +261,8 @@ class FontDataset(Dataset):
         self.font = ImageFont.truetype(opt.font_path, size=opt.char_size)
         # self.image_path_list = natsorted(self.image_path_list)
         self.canvas_size = opt.canvas_size
-        self.char_list = self.opt.character
-        self.nSamples = len(self.opt.character)
+        self.char_list = self.opt.shufa
+        self.nSamples = len(self.char_list)
 
     def __len__(self):
         return self.nSamples

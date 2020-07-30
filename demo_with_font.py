@@ -121,6 +121,7 @@ if __name__ == '__main__':
     """ font variable """
     parser.add_argument('--char_size', type=int, default=256)
     parser.add_argument('--canvas_size', type=int, default=256)
+    parser.add_argument('--shufa', action='store_true')
 
     opt = parser.parse_args()
 
@@ -140,14 +141,15 @@ if __name__ == '__main__':
                 raise ValueError
         charset = ''.join(charset)
         opt.character = charset
-    elif opt.character == 'shufa':
+    elif opt.sensitive:
+        opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
+
+    if opt.shufa:
         with open('charset/shufa_vocab.txt', 'r', encoding='utf-8') as chars:
             charset = chars.readlines()
         charset = [c.strip() for c in charset]
         charset = ''.join(charset)
-        opt.character = charset
-    elif opt.sensitive:
-        opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
+        opt.shufa = charset
 
     cudnn.benchmark = True
     cudnn.deterministic = True
