@@ -7,7 +7,7 @@ import lmdb
 import torch
 
 from natsort import natsorted
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from torch.utils.data import Dataset, ConcatDataset, Subset
 from torch._utils import _accumulate
@@ -252,6 +252,38 @@ class RawDataset(Dataset):
                 img = Image.new('L', (self.opt.imgW, self.opt.imgH))
 
         return (img, self.image_path_list[index])
+
+
+class FontDataset(Dataset):
+
+    def __init__(self, opt):
+        self.opt = opt
+        self.font = ImageFont.truetype(opt.font_path, size=opt.char_size)
+        # self.image_path_list = natsorted(self.image_path_list)
+        self.canvas_size = opt.canvas_size
+        self.char_list = self.opt.character
+        self.nSamples = len(self.opt.character)
+
+    def __len__(self):
+        return self.nSamples
+
+    @staticmethod
+    def draw_single_char(ch, font, canvas_size, x_offset=0, y_offset=0):
+        img = Image.new("RGB", (canvas_size, canvas_size), (255, 255, 255))
+        draw = ImageDraw.Draw(img)
+        draw.text((x_offset, y_offset), ch, (0, 0, 0), font=font)
+        return img
+
+    def __getitem__(self, index):
+
+        if self.opt.rgb:
+            img = self.draw_single_char(self.char_list[index], self.font, self.canvas_size)
+            # img = Image.open(self.image_path_list[index]).convert('RGB')  # for color image
+        else:
+            img = self.draw_single_char(self.char_list[index], self.font, self.canvas_size).convert('L')
+            # img = Image.open(self.image_path_list[index]).convert('L')
+
+        return (img, self.char_list[index])
 
 
 class ResizeNormalize(object):
