@@ -18,7 +18,24 @@ def get_wrong_dict(file_handle):
     return wrong_dict
 
 
-if __name__ == '__main__':
+def get_wrong_list(file_handle):
+    wrong_list = []
+    total_cnt = 0
+    wrong_cnt = 0
+    for line in file_handle:
+        line = line.strip().split('\t')
+        if len(line) != 3:
+            continue
+        gt_answer = line[0].strip()
+        pred_answer = line[1].strip()
+        if gt_answer != pred_answer:
+            wrong_list.append(gt_answer)
+            wrong_cnt += 1
+        total_cnt += 1
+    return wrong_list, total_cnt, wrong_cnt
+
+
+def analysis_M_L():
     # with open('result\\demo_s.log', 'r', encoding='utf-8') as s_log:
     #     s_wrong_list = get_wrong_list(s_log)
     # for i in s_wrong_list:
@@ -66,3 +83,16 @@ if __name__ == '__main__':
     print('行书隶书错误: %d' % xingshu_lishu_count)
     print('总错误：%d' % total_count)
     print('比例为: %.4f' % (xingshu_lishu_count / total_count))
+
+
+if __name__ == '__main__':
+    print('\t\t', '总数', '错误数\t', '正确率\t')
+    with open('result/font_demo_兰亭黑长_l.log', 'r', encoding='utf-8') as log:
+        lthc, lthc_total_cnt, lthc_wrong_cnt = get_wrong_list(log)
+    print("兰亭黑长\t", lthc_total_cnt, lthc_wrong_cnt, round(1-lthc_wrong_cnt/lthc_total_cnt, 4))
+    with open('result/font_demo_博雅刊宋_l.log', 'r', encoding='utf-8') as log:
+        byks, byks_total_cnt, byks_wrong_cnt = get_wrong_list(log)
+    print("博雅刊宋\t", byks_total_cnt, byks_wrong_cnt, round(1-byks_wrong_cnt/byks_total_cnt, 4))
+    with open('result/font_demo_悠宋_l.log', 'r', encoding='utf-8') as log:
+        ys, ys_total_cnt, ys_wrong_cnt = get_wrong_list(log)
+    print("悠宋\t\t", ys_total_cnt, ys_wrong_cnt, round(1-ys_wrong_cnt/ys_total_cnt, 4))
