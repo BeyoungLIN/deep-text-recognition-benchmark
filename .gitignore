@@ -211,6 +211,7 @@ $RECYCLE.BIN/
 
 # dataset
 dataset/
+noise_data/
 
 # shufa
 shufa_pic/
