@@ -277,23 +277,20 @@ if __name__ == '__main__':
 
     """ vocab / character number configuration """
 
-    if opt.character in ['CN-s', 'CN-m', 'CN-l']:
+    if opt.character.startswith('CN-'):
         if opt.character == 'CN-s':
-            with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
-                charset = chars.readlines()
-            charset = [c.strip() for c in charset]
+            with open('charset/charset_s.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
+        elif opt.character == 'CN-m':
+            with open('charset/charset_m.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
+        elif opt.character == 'CN-l':
+            with open('charset/charset_l.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
         else:
-            charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
-            if opt.character == 'CN-m':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
-            elif opt.character == 'CN-l':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
-            else:
-                raise ValueError
+            raise ValueError
         charset = ''.join(charset)
         opt.character = charset
-
-
     elif opt.sensitive:
         # opt.character += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
