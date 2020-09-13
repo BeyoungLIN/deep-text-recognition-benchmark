@@ -5,6 +5,8 @@ import six
 import math
 import lmdb
 import torch
+import PIL
+from PIL import Image
 
 from natsort import natsorted
 from PIL import Image, ImageDraw, ImageFont
@@ -352,6 +354,8 @@ class AlignCollate(object):
 
         else:
             transform = ResizeNormalize((self.imgW, self.imgH))
+            image = [image.resize((self.imgW, self.imgH), Image.BICUBIC) for image in images]
+            image[0].show()
             image_tensors = [transform(image) for image in images]
             image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
 
@@ -369,3 +373,12 @@ def tensor2im(image_tensor, imtype=np.uint8):
 def save_image(image_numpy, image_path):
     image_pil = Image.fromarray(image_numpy)
     image_pil.save(image_path)
+
+
+if __name__  == '__main__':
+    _AlignCollate = AlignCollate(300, 32)
+    batch = zip(
+        [Image.open('noise_data/result/text_line_0.jpg').convert('L')],
+        ['抛豻滁栝艇徼鶤估煥疇枚肋俫吕鼙僮沕頎僾']
+    )
+    image_tensors, labels = _AlignCollate.__call__(batch)
