@@ -78,7 +78,7 @@ def createDataset(inputPath, gtFile, outputPath, checkValid=True, map_size=10995
             cache = {}
             print('Written %d / %d' % (cnt, nSamples))
         cnt += 1
-    nSamples = cnt-1
+    nSamples = cnt - 1
     cache['num-samples'.encode()] = str(nSamples).encode()
     writeCache(env, cache)
     print('Created dataset with %d samples' % nSamples)
