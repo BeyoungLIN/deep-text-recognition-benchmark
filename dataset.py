@@ -66,7 +66,6 @@ class Batch_Balanced_Dataset(object):
                 num_workers=int(opt.workers),
                 collate_fn=_AlignCollate, pin_memory=True)
             self.data_loader_list.append(_data_loader)
-            # TODO bug here?
             self.dataloader_iter_list.append(iter(_data_loader))
 
         Total_batch_size_log = f'{dashed_line}\n'
