@@ -212,6 +212,7 @@ $RECYCLE.BIN/
 # dataset
 dataset/
 noise_data/
+test_chars/
 
 # shufa
 shufa_pic/
