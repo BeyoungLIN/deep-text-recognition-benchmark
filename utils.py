@@ -151,11 +151,22 @@ class AttnLabelConverter(object):
 
     def decode(self, text_index, length):
         """ convert text-index into text-label. """
-        texts = []
-        for index, l in enumerate(length):
-            text = ''.join([self.character[i] for i in text_index[index, :]])
-            texts.append(text)
-        return texts
+        if len(text_index.shape) == 2:
+            texts = []
+            for index, l in enumerate(length):
+                text = ''.join([self.character[i] for i in text_index[index, :]])
+                texts.append(text)
+            return texts
+        elif len(text_index.shape) == 3:
+            topk = text_index.shape[-1]
+            all_texts = []
+            for index, l in enumerate(length):
+                texts = []
+                for k in range(topk):
+                    text = ''.join([self.character[i] for i in text_index[index, :, k]])
+                    texts.append(text)
+                all_texts.append(texts)
+            return all_texts
 
 
 class Averager(object):
