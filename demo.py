@@ -122,6 +122,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
+    '''
     if opt.character in ['CN-s', 'CN-m', 'CN-l']:
         if opt.character == 'CN-s':
             with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
@@ -137,10 +138,29 @@ if __name__ == '__main__':
                 raise ValueError
         charset = ''.join(charset)
         opt.character = charset
-
-
     elif opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
+    '''
+
+    if opt.character.startswith('CN-'):
+        if opt.character == 'CN-s':
+            with open('charset/charset_s.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
+        elif opt.character == 'CN-m':
+            with open('charset/charset_m.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
+        elif opt.character == 'CN-l':
+            with open('charset/charset_l.txt', 'r', encoding='utf-8') as fp:
+                charset = [c.strip() for c in fp.readlines()]
+        else:
+            raise ValueError
+        charset = ''.join(charset)
+        opt.character = charset
+    elif opt.sensitive:
+        # opt.character += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
+    else:
+        raise ValueError
 
     cudnn.benchmark = True
     cudnn.deterministic = True
