@@ -354,8 +354,6 @@ class AlignCollate(object):
 
         else:
             transform = ResizeNormalize((self.imgW, self.imgH))
-            image = [image.resize((self.imgW, self.imgH), Image.BICUBIC) for image in images]
-            image[0].show()
             image_tensors = [transform(image) for image in images]
             image_tensors = torch.cat([t.unsqueeze(0) for t in image_tensors], 0)
 
