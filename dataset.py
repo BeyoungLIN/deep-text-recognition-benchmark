@@ -255,6 +255,26 @@ class RawDataset(Dataset):
         return (img, self.image_path_list[index])
 
 
+class PILDataset(Dataset):
+
+    def __init__(self, opt, ImageList):
+        self.opt = opt
+        self.image_list = ImageList
+        self.nSamples = len(self.image_list)
+
+    def __len__(self):
+        return self.nSamples
+
+    def __getitem__(self, index):
+
+        if self.opt.rgb:
+            img = self.image_list[index].convert('RGB')  # for color image
+        else:
+            img = self.image_list[index].convert('L')
+
+        return (img, str(index))
+
+
 class FontDataset(Dataset):
 
     def __init__(self, opt):
