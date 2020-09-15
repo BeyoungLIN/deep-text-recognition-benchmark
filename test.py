@@ -260,7 +260,13 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
-    if opt.sensitive:
+    if opt.character in ['CN-s', 'CN-m', 'CN-l', 'CN-xl']:
+        size = opt.character.split('-')[-1]
+        with open('charset/charset_' + size + '.txt', 'r', encoding='utf-8') as chars:
+            charset = [c.strip() for c in chars]
+        charset = ''.join(charset)
+        opt.character = charset
+    elif opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
 
     cudnn.benchmark = True

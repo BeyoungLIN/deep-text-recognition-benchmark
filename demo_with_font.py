@@ -25,9 +25,10 @@ def demo(opt):
     if opt.rgb:
         opt.input_channel = 3
     model = Model(opt)
-    print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
-          opt.SequenceModeling, opt.Prediction)
+    print('model input parameters',
+          opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
+          opt.hidden_size, opt.num_class, opt.batch_max_length,
+          opt.Transformation, opt.FeatureExtraction, opt.SequenceModeling, opt.Prediction)
     model = torch.nn.DataParallel(model).to(device)
 
     # load model
@@ -95,7 +96,6 @@ def demo(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--font_path', required=True, help='path to font file')
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
     parser.add_argument('--saved_model', required=True, help="path to saved_model to evaluation")
@@ -119,37 +119,21 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
 
     """ font variable """
-    parser.add_argument('--char_size', type=int, default=256)
+    parser.add_argument('--font_path', required=True, help='path to font file')
+    parser.add_argument('--char_size', type=int, default=250)
     parser.add_argument('--canvas_size', type=int, default=256)
-    parser.add_argument('--shufa', action='store_true')
 
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
-    if opt.character in ['CN-s', 'CN-m', 'CN-l']:
-        if opt.character == 'CN-s':
-            with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
-                charset = chars.readlines()
-            charset = [c.strip() for c in charset]
-        else:
-            charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
-            if opt.character == 'CN-m':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
-            elif opt.character == 'CN-l':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
-            else:
-                raise ValueError
+    if opt.character in ['CN-s', 'CN-m', 'CN-l', 'CN-xl']:
+        size = opt.character.split('-')[-1]
+        with open('charset/charset_' + size + '.txt', 'r', encoding='utf-8') as chars:
+            charset = [c.strip() for c in chars]
         charset = ''.join(charset)
         opt.character = charset
     elif opt.sensitive:
         opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
-
-    if opt.shufa:
-        with open('charset/shufa_vocab.txt', 'r', encoding='utf-8') as chars:
-            charset = chars.readlines()
-        charset = [c.strip() for c in charset]
-        charset = ''.join(charset)
-        opt.shufa = charset
 
     cudnn.benchmark = True
     cudnn.deterministic = True
