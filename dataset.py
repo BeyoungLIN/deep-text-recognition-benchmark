@@ -15,6 +15,25 @@ from torch import nn
 from torch.utils.data import Dataset, ConcatDataset, Subset
 from torch._utils import _accumulate
 import torchvision.transforms as transforms
+from fontTools.ttLib import TTFont
+
+
+def processGlyphNames(GlyphNames):
+    res = set()
+    for char in GlyphNames:
+        if char.startswith('uni'):
+            char = char.replace('uni', '\\u')
+        elif char.startswith('uF'):
+            char = char.replace('uF', '\\u')
+        else:
+            continue
+        char_utf8 = char.encode('utf-8')
+        try:
+            char_escape = char_utf8.decode('unicode_escape')
+        except UnicodeDecodeError:
+            continue
+        res.add(char_escape)
+    return res
 
 
 class Batch_Balanced_Dataset(object):
@@ -216,7 +235,7 @@ class LmdbDataset(Dataset):
             out_of_char = f'[^{self.opt.character}]'
             label = re.sub(out_of_char, '', label)
 
-        return (img, label)
+        return img, label
 
 
 class RawDataset(Dataset):
@@ -253,7 +272,7 @@ class RawDataset(Dataset):
             else:
                 img = Image.new('L', (self.opt.imgW, self.opt.imgH))
 
-        return (img, self.image_path_list[index])
+        return img, self.image_path_list[index]
 
 
 class PILDataset(Dataset):
@@ -272,8 +291,7 @@ class PILDataset(Dataset):
             img = self.image_list[index].convert('RGB')  # for color image
         else:
             img = self.image_list[index].convert('L')
-
-        return (img, str(index))
+        return img, str(index)
 
 
 class FontDataset(Dataset):
@@ -281,13 +299,17 @@ class FontDataset(Dataset):
     def __init__(self, opt):
         self.opt = opt
         self.font = ImageFont.truetype(opt.font_path, size=opt.char_size)
+        self.valid_char_set = processGlyphNames(TTFont(opt.font_path).getGlyphNames())
         # self.image_path_list = natsorted(self.image_path_list)
         self.canvas_size = opt.canvas_size
-        self.char_list = self.opt.shufa
+        self.char_list = self.get_valid_char(self.opt.character)
         self.nSamples = len(self.char_list)
 
     def __len__(self):
         return self.nSamples
+
+    def get_valid_char(self, characters):
+        return [ch for ch in characters if ch in self.valid_char_set]
 
     @staticmethod
     def draw_single_char(ch, font, canvas_size, x_offset=0, y_offset=0):
@@ -338,12 +360,9 @@ class FontDataset(Dataset):
 
         if self.opt.rgb:
             img = self.draw_single_char(self.char_list[index], self.font, self.canvas_size).convert('RGB')
-            # img = Image.open(self.image_path_list[index]).convert('RGB')  # for color image
         else:
             img = self.draw_single_char(self.char_list[index], self.font, self.canvas_size).convert('L')
-            # img = Image.open(self.image_path_list[index]).convert('L')
-
-        return (img, self.char_list[index])
+        return img, self.char_list[index]
 
 
 class ResizeNormalize(object):
