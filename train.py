@@ -290,18 +290,11 @@ if __name__ == '__main__':
 
     """ vocab / character number configuration """
 
-    if opt.character.startswith('CN-'):
-        if opt.character == 'CN-s':
-            with open('charset/charset_s.txt', 'r', encoding='utf-8') as fp:
-                charset = [c.strip() for c in fp.readlines()]
-        elif opt.character == 'CN-m':
-            with open('charset/charset_m.txt', 'r', encoding='utf-8') as fp:
-                charset = [c.strip() for c in fp.readlines()]
-        elif opt.character == 'CN-l':
-            with open('charset/charset_l.txt', 'r', encoding='utf-8') as fp:
-                charset = [c.strip() for c in fp.readlines()]
-        else:
-            raise ValueError
+    """ vocab / character number configuration """
+    if opt.character in ['CN-s', 'CN-m', 'CN-l', 'CN-xl']:
+        size = opt.character.split('-')[-1]
+        with open('charset/charset_' + size + '.txt', 'r', encoding='utf-8') as chars:
+            charset = [c.strip() for c in chars]
         charset = ''.join(charset)
         opt.character = charset
     elif opt.sensitive:
