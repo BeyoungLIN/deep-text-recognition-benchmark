@@ -150,7 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
 
     """ Output Setting """
-    parser.add_argument('--topk', type=int, default=5, help='Top-k to output')
+    parser.add_argument('--topk', type=int, default=5, help='Top-k to output when single char ocr')
 
     opt = parser.parse_args()
 

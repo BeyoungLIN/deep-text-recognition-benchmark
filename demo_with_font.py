@@ -153,6 +153,9 @@ if __name__ == '__main__':
     parser.add_argument('--char_size', type=int, default=250)
     parser.add_argument('--canvas_size', type=int, default=256)
 
+    """ Output Setting """
+    parser.add_argument('--topk', type=int, default=5, help='Top-k to output when single char ocr')
+
     opt = parser.parse_args()
 
     """ vocab / character number configuration """
