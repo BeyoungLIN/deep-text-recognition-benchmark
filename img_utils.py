@@ -27,8 +27,7 @@ def gauss_noise(image):
     sigma = 10
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            for k in range(img.shape[2]):
-                img[i, j, k] = img[i, j, k] + random.gauss(mu=mu, sigma=sigma)
+            img[i, j] = img[i, j] + random.gauss(mu=mu, sigma=sigma)
     img[img > 255] = 255
     img[img < 0] = 0
     img = img.astype(np.uint8)
