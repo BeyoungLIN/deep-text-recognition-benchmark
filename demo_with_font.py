@@ -2,6 +2,7 @@ import string
 import argparse
 
 import pandas as pd
+import numpy as np
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -25,10 +26,9 @@ def demo(opt):
     if opt.rgb:
         opt.input_channel = 3
     model = Model(opt)
-    print('model input parameters',
-          opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length,
-          opt.Transformation, opt.FeatureExtraction, opt.SequenceModeling, opt.Prediction)
+    print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
+          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.SequenceModeling, opt.Prediction)
     model = torch.nn.DataParallel(model).to(device)
 
     # load model
@@ -66,32 +66,62 @@ def demo(opt):
             else:
                 preds = model(image, text_for_pred, is_train=False)
 
-                # select max probabilty (greedy decoding) then decode index to character
-                _, preds_index = preds.max(2)
-                preds_str = converter.decode(preds_index, length_for_pred)
+                if opt.batch_max_length == 1:
+                    # select top_k probabilty (greedy decoding) then decode index to character
+                    k = opt.topk
+                    preds = F.softmax(preds, dim=2)
+                    topk = preds.topk(k)
+                    topk_id = topk[1]
+                    topk_prob = topk[0]
+                    topk_id = topk_id.detach().cpu()[:, 0, :].unsqueeze(dim=1).numpy()  # (batch_size, topk)
+                    # concat 3(['s']) to the end of ids
+                    topk_s = np.ones_like(topk_id) * 3
+                    topk_id = np.concatenate((topk_id, topk_s), axis=1)
+                    topk_chars = converter.decode(topk_id, length_for_pred)
+                    topk_probs = topk_prob.detach().cpu()[:, 0, :]  # (batch_size, topk)
+                else:
+                    # select max probabilty (greedy decoding) then decode index to character
+                    _, preds_index = preds.max(2)
+                    preds_str = converter.decode(preds_index, length_for_pred)
 
-            log = open(f'./log_demo_result.txt', 'a')
-            dashed_line = '-' * 80
-            head = f'{"image_path":25s}\t{"predicted_labels":25s}\tconfidence score'
-            
-            print(f'{dashed_line}\n{head}\n{dashed_line}')
-            log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
+            if opt.batch_max_length == 1:
+                log = open(f'./log_demo_result.csv', 'a', encoding='utf-8')
+                # topk_probs = F.softmax(topk_probs, dim=-1)
+                for img_name, pred, pred_max_prob in zip(image_path_list, topk_chars, topk_probs):
+                    if 'Attn' in opt.Prediction:
+                        pred = [p[:p.find('[s]')] for p in pred] # prune after "end of sentence" token ([s])
+                    print(img_name, end='')
+                    log.write(img_name)
+                    for pred_char, pred_prob in zip(pred, pred_max_prob):
+                        print(','+pred_char, end='')
+                        print(',%.4f' % pred_prob, end='')
+                        log.write(','+pred_char)
+                        log.write(',%.4f' % pred_prob)
+                    print()
+                    log.write('\n')
+                log.close()
+            else:
+                log = open(f'./log_demo_result.txt', 'a', encoding='utf-8')
+                dashed_line = '-' * 80
+                head = f'{"image_path":25s}\t{"predicted_labels":25s}\tconfidence score'
 
-            preds_prob = F.softmax(preds, dim=2)
-            preds_max_prob, _ = preds_prob.max(dim=2)
-            for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
-                if 'Attn' in opt.Prediction:
-                    pred_EOS = max(1, pred.find('[s]'))
-                    pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
-                    pred_max_prob = pred_max_prob[:pred_EOS]
+                print(f'{dashed_line}\n{head}\n{dashed_line}')
+                log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
 
-                # calculate confidence score (= multiply of pred_max_prob)
-                confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                preds_prob = F.softmax(preds, dim=2)
+                preds_max_prob, _ = preds_prob.max(dim=2)
+                for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
+                    if 'Attn' in opt.Prediction:
+                        pred_EOS = pred.find('[s]')
+                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                        pred_max_prob = pred_max_prob[:pred_EOS]
 
-                print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
-                log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
+                    # calculate confidence score (= multiply of pred_max_prob)
+                    confidence_score = pred_max_prob.cumprod(dim=0)[-1]
 
-            log.close()
+                    print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
+                    log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
+                log.close()
 
 
 if __name__ == '__main__':
