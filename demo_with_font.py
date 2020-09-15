@@ -46,6 +46,9 @@ def demo(opt):
 
     # predict
     model.eval()
+    total_cnt = 0
+    acc1_cnt = 0
+    acck_cnt = 0
     with torch.no_grad():
         for image_tensors, image_path_list in demo_loader:
             batch_size = image_tensors.size(0)
@@ -80,9 +83,7 @@ def demo(opt):
                     topk_chars = converter.decode(topk_id, length_for_pred)
                     topk_probs = topk_prob.detach().cpu()[:, 0, :]  # (batch_size, topk)
                 else:
-                    # select max probabilty (greedy decoding) then decode index to character
-                    _, preds_index = preds.max(2)
-                    preds_str = converter.decode(preds_index, length_for_pred)
+                    raise ValueError
 
             if opt.batch_max_length == 1:
                 log = open(f'./log_demo_result.csv', 'a', encoding='utf-8')
@@ -90,38 +91,24 @@ def demo(opt):
                 for img_name, pred, pred_max_prob in zip(image_path_list, topk_chars, topk_probs):
                     if 'Attn' in opt.Prediction:
                         pred = [p[:p.find('[s]')] for p in pred] # prune after "end of sentence" token ([s])
-                    print(img_name, end='')
+                    # print(img_name, end='')
                     log.write(img_name)
                     for pred_char, pred_prob in zip(pred, pred_max_prob):
-                        print(','+pred_char, end='')
-                        print(',%.4f' % pred_prob, end='')
+                        # print(','+pred_char, end='')
+                        # print(',%.4f' % pred_prob, end='')
                         log.write(','+pred_char)
                         log.write(',%.4f' % pred_prob)
-                    print()
+                    # print()
                     log.write('\n')
+                    if img_name == pred[0]:
+                        acc1_cnt += 1
+                    if img_name in pred:
+                        acck_cnt += 1
+                    total_cnt += 1
                 log.close()
             else:
-                log = open(f'./log_demo_result.txt', 'a', encoding='utf-8')
-                dashed_line = '-' * 80
-                head = f'{"image_path":25s}\t{"predicted_labels":25s}\tconfidence score'
-
-                print(f'{dashed_line}\n{head}\n{dashed_line}')
-                log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
-
-                preds_prob = F.softmax(preds, dim=2)
-                preds_max_prob, _ = preds_prob.max(dim=2)
-                for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
-                    if 'Attn' in opt.Prediction:
-                        pred_EOS = pred.find('[s]')
-                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
-                        pred_max_prob = pred_max_prob[:pred_EOS]
-
-                    # calculate confidence score (= multiply of pred_max_prob)
-                    confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-
-                    print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
-                    log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
-                log.close()
+                raise ValueError
+    return total_cnt, acc1_cnt, acck_cnt
 
 
 if __name__ == '__main__':
@@ -172,4 +159,10 @@ if __name__ == '__main__':
     cudnn.deterministic = True
     opt.num_gpu = torch.cuda.device_count()
 
-    demo(opt)
+    total_cnt, acc1_cnt, acck_cnt = demo(opt)
+    print(f'total: {total_cnt}')
+    print(f'acc1: {acc1_cnt}')
+    print(f'acck: {acck_cnt}')
+    print(f'acc1_rate: {acc1_cnt/total_cnt}')
+    print(f'acck_rate: {acck_cnt/total_cnt}')
+
