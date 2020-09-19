@@ -12,7 +12,6 @@ import numpy as np
 from utils import CTCLabelConverter, AttnLabelConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def demo(opt):
@@ -29,11 +28,11 @@ def demo(opt):
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
-    model = torch.nn.DataParallel(model).to(device)
+    model = torch.nn.DataParallel(model).to(opt.devices)
 
     # load model
     print('loading pretrained model from %s' % opt.saved_model)
-    model.load_state_dict(torch.load(opt.saved_model, map_location=device))
+    model.load_state_dict(torch.load(opt.saved_model, map_location=opt.devices))
 
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
     AlignCollate_demo = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
@@ -49,10 +48,10 @@ def demo(opt):
     with torch.no_grad():
         for image_tensors, image_path_list in demo_loader:
             batch_size = image_tensors.size(0)
-            image = image_tensors.to(device)
+            image = image_tensors.to(opt.devices)
             # For max length prediction
-            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
-            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
+            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(opt.devices)
+            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(opt.devices)
 
             if 'CTC' in opt.Prediction:
                 preds = model(image, text_for_pred)
@@ -117,7 +116,10 @@ def demo(opt):
                         pred_max_prob = pred_max_prob[:pred_EOS]
 
                     # calculate confidence score (= multiply of pred_max_prob)
-                    confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                    try:
+                        confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                    except IndexError:
+                        raise ValueError(f'{img_name:25s}\t{pred:25s}\t')
 
                     print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
                     log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
@@ -130,6 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
     parser.add_argument('--saved_model', required=True, help="path to saved_model to evaluation")
+    parser.add_argument('--devices', type=str, default=None, help='CUDA devices')
     """ Data processing """
     parser.add_argument('--batch_max_length', type=int, default=25, help='maximum-label-length')
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
@@ -153,6 +156,13 @@ if __name__ == '__main__':
     parser.add_argument('--topk', type=int, default=5, help='Top-k to output when single char ocr')
 
     opt = parser.parse_args()
+
+    if opt.devices is None:
+        opt.devices = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    elif torch.cuda.is_available():
+        opt.devices = torch.device('cuda:' + opt.devices)
+    else:
+        opt.devices = torch.device('cpu')
 
     """ vocab / character number configuration """
     '''
