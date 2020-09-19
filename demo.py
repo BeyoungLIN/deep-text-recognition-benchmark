@@ -1,3 +1,4 @@
+import os
 import string
 import argparse
 
@@ -12,6 +13,7 @@ import numpy as np
 from utils import CTCLabelConverter, AttnLabelConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def demo(opt):
@@ -29,13 +31,13 @@ def demo(opt):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
     try:
-        model = torch.nn.DataParallel(model).to(opt.devices)
+        model = torch.nn.DataParallel(model).to(device)
     except RuntimeError:
-        raise RuntimeError(opt.devices)
+        raise RuntimeError(device)
 
     # load model
     print('loading pretrained model from %s' % opt.saved_model)
-    model.load_state_dict(torch.load(opt.saved_model, map_location=opt.devices))
+    model.load_state_dict(torch.load(opt.saved_model, map_location=device))
 
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
     AlignCollate_demo = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
@@ -51,10 +53,10 @@ def demo(opt):
     with torch.no_grad():
         for image_tensors, image_path_list in demo_loader:
             batch_size = image_tensors.size(0)
-            image = image_tensors.to(opt.devices)
+            image = image_tensors.to(device)
             # For max length prediction
-            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(opt.devices)
-            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(opt.devices)
+            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
+            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
 
             if 'CTC' in opt.Prediction:
                 preds = model(image, text_for_pred)
@@ -160,12 +162,8 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
 
-    if opt.devices is None:
-        opt.devices = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    elif torch.cuda.is_available():
-        opt.devices = torch.device('cuda:' + opt.devices)
-    else:
-        opt.devices = torch.device('cpu')
+    if opt.devices is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = opt.devices
 
     """ vocab / character number configuration """
     '''
