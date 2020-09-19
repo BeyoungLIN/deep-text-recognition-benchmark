@@ -13,8 +13,7 @@ import numpy as np
 from utils import CTCLabelConverter, AttnLabelConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+device = None
 
 def demo(opt):
     """ model configuration """
@@ -163,7 +162,9 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     if opt.devices is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = opt.devices
+        os.environ['CUDA_VISIBLE_DEVICES'] = opt.devices
+        print(f'Use CUDA devices: {opt.devices}')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     """ vocab / character number configuration """
     '''
