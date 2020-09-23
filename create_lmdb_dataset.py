@@ -175,3 +175,5 @@ if __name__ == '__main__':
         createDataset(args.input_path, args.gt_path, args.output_path, args.check_valid, args.map_size)
     elif args.type == 'imagenet':
         createImagenetDataset(args.input_path, args.output_path, args.check_valid, args.map_size)
+    else:
+        raise ValueError('type should be normal or imagenet.')
