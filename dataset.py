@@ -18,6 +18,7 @@ from torch._utils import _accumulate
 import torchvision.transforms as transforms
 from fontTools.ttLib import TTFont
 
+import ocrodeg
 from img_utils import img_augment, draw_single_char
 
 
@@ -55,7 +56,7 @@ class Batch_Balanced_Dataset(object):
         log.write(f'dataset_root: {opt.train_data}\nopt.select_data: {opt.select_data}\nopt.batch_ratio: {opt.batch_ratio}\n')
         assert len(opt.select_data) == len(opt.batch_ratio)
 
-        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+        _AlignCollate = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, augment=opt.augment)
         self.data_loader_list = []
         self.dataloader_iter_list = []
         batch_size_list = []
@@ -359,14 +360,19 @@ class NormalizePAD(object):
 
 class AlignCollate(object):
 
-    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False):
+    def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, augment=False):
         self.imgH = imgH
         self.imgW = imgW
         self.keep_ratio_with_pad = keep_ratio_with_pad
+        self.augment = augment
 
     def __call__(self, batch):
         batch = filter(lambda x: x is not None, batch)
         images, labels = zip(*batch)
+
+        if self.augment:
+            images = [ocrodeg.ocrodeg_augment(img) for img in images]
+            images[0].show()
 
         if self.keep_ratio_with_pad:  # same concept with 'Rosetta' paper
             resized_max_w = self.imgW
@@ -410,7 +416,7 @@ def save_image(image_numpy, image_path):
 
 
 if __name__  == '__main__':
-    _AlignCollate = AlignCollate(300, 32)
+    _AlignCollate = AlignCollate(300, 32, augment=True)
     batch = zip(
         [Image.open('noise_data/result/text_line_0.jpg').convert('L')],
         ['抛豻滁栝艇徼鶤估煥疇枚肋俫吕鼙僮沕頎僾']

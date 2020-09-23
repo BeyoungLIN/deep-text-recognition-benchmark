@@ -260,7 +260,7 @@ def ocrodeg_augment(img):
             deltas=bounded_gaussian_noise(
                 shape=img.shape,
                 sigma=random.uniform(12.0, 20.0),
-                maxdelta=random.uniform(3.0, 5.0)
+                maxdelta=random.uniform(3.0, 7.0)
             )
         )
         flag += 1
