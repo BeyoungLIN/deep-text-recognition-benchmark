@@ -372,7 +372,7 @@ class AlignCollate(object):
 
         if self.augment:
             images = [ocrodeg.ocrodeg_augment(img) for img in images]
-            images[0].show()
+            # images[0].show()
 
         if self.keep_ratio_with_pad:  # same concept with 'Rosetta' paper
             resized_max_w = self.imgW
