@@ -278,13 +278,13 @@ def ocrodeg_augment(img):
 
     img = np.clip(img, 0.0, 1.0)
 
-    # raw - 50% use multiscale, 50% use fibrous, 0% use raw
-    # flag=1 - 35% use multiscale, 35% use fibrous, 30% use raw
-    # flag=2 - 20% use multiscale, 20% use fibrous, 60% use raw
+    # raw - 40% use multiscale, 40% use fibrous, 20% use raw
+    # flag=1 - 25% use multiscale, 25% use fibrous, 50% use raw
+    # flag=2 - 10% use multiscale, 10% use fibrous, 80% use raw
     rnd = random.random()
-    if rnd < 0.5 - flag * 0.15:
+    if rnd < 0.4 - flag * 0.15:
         img = printlike_multiscale(img, blur=0.5)
-    elif rnd < 1 - flag * 0.15:
+    elif rnd < 0.8 - flag * 0.15:
         img = printlike_fibrous(img)
 
     img = (img * 255).astype(np.uint8)
