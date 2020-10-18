@@ -261,6 +261,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
+    parser.add_argument('--page_orient', type=str, choices=['horizontal', 'vertical', 'single'], default='horizontal',
+                        help='page orientation, or single char')
 
     opt = parser.parse_args()
 
@@ -269,7 +271,8 @@ if __name__ == '__main__':
                        f'{opt.FeatureExtraction}-' \
                        f'{opt.SequenceModeling}-' \
                        f'{opt.Prediction}-' \
-                       f'{opt.character}'
+                       f'{opt.character}-' \
+                       f'{opt.page_orient}'
         opt.exp_name += f'-Seed{opt.manualSeed}'
         # print(opt.exp_name)
 
