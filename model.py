@@ -78,7 +78,10 @@ class Model(nn.Module):
 
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
-        visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
+        if self.opt.page_orient == 'horizontal':
+            visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
+        elif self.opt.page_orient == 'vertical':
+            visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))  # [b, c, h, w] -> [b, h, c, w]
         visual_feature = visual_feature.squeeze(3)
 
         """ Sequence modeling stage """
