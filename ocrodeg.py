@@ -2,6 +2,7 @@ import os
 import sys
 
 import random
+import time
 import warnings
 
 import numpy as np
@@ -293,6 +294,21 @@ def ocrodeg_augment(img):
 
 
 if __name__ == '__main__':
-    # test()
-    # augment()
-    pass
+    img_array_list = []
+    for p in os.listdir('diaolong'):
+        img_path = os.path.join('diaolong', p)
+        img = Image.open(img_path).convert('L')
+        img = np.array(img)
+        img = img / 255
+        img_array_list.append(img)
+    st = time.time()
+    for img in img_array_list:
+        img = printlike_fibrous(img)
+        # img = binary_blur(img, random.uniform(0.5, 0.7), random.uniform(0.05, 0.1))
+        zerooneimshow(img)
+    et = time.time()
+    print(et - st)
+    # distort_with_noise 28.50s
+    # binary_blur 4.79s
+    # multiscale 98.98s
+    # fibrous 113.01s

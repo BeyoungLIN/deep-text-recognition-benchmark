@@ -47,7 +47,7 @@ class Model(nn.Module):
         elif opt.FeatureExtraction == 'RCNN':
             self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResNet':
-            self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel)
+            self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
         else:
             raise Exception('No FeatureExtraction module specified')
         self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
