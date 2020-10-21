@@ -158,7 +158,8 @@ def createImagenetDataset(inputPath, outputPath, checkValid=True, map_size=10995
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--type', required=True, help='normal(imgs & gt_file) or imagenet(imgs in dirs)')
+    parser.add_argument('--type', required=True, choices=['normal', 'imagenet'],
+                        help='normal(imgs & gt_file) or imagenet(imgs in dirs)')
     parser.add_argument('--input_path', type=str, required=True, help='input folder path where starts imagePath')
     parser.add_argument('--gt_path', type=str, help='list of image path and label')
     parser.add_argument('--output_path', type=str, required=True, help='output folder path where store lmdb dataset')
