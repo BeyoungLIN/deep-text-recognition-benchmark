@@ -293,6 +293,22 @@ def ocrodeg_augment(img):
     return img
 
 
+def ocrodeg_simple_augment(img):
+    img = np.array(img)
+    img = img / 255
+    # 50% use binary blur, 50% use raw
+    if random.random() < 0.5:
+        img = binary_blur(
+            img,
+            sigma=random.uniform(0.5, 0.7),
+            noise=random.uniform(0.05, 0.1)
+        )
+    img = np.clip(img, 0.0, 1.0)
+    img = (img * 255).astype(np.uint8)
+    img = Image.fromarray(img)
+    return img
+
+
 if __name__ == '__main__':
     img_array_list = []
     for p in os.listdir('diaolong'):

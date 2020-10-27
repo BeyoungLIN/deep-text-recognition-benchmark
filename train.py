@@ -58,20 +58,24 @@ def train(opt):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
 
-    # weight initialization
-    for name, param in model.named_parameters():
-        if 'localization_fc2' in name:
-            print(f'Skip {name} as it is already initialized')
-            continue
-        try:
-            if 'bias' in name:
-                init.constant_(param, 0.0)
-            elif 'weight' in name:
-                init.kaiming_normal_(param)
-        except Exception as e:  # for batchnorm.
-            if 'weight' in name:
-                param.data.fill_(1)
-            continue
+    if opt.resume:
+        weight_dict = torch.load(opt.resume)
+        model.load_state_dict(weight_dict)
+    else:
+        # weight initialization
+        for name, param in model.named_parameters():
+            if 'localization_fc2' in name:
+                print(f'Skip {name} as it is already initialized')
+                continue
+            try:
+                if 'bias' in name:
+                    init.constant_(param, 0.0)
+                elif 'weight' in name:
+                    init.kaiming_normal_(param)
+            except Exception as e:  # for batchnorm.
+                if 'weight' in name:
+                    param.data.fill_(1)
+                continue
 
     # data parallel for multi-GPU
     model = torch.nn.DataParallel(model).to(device)
@@ -221,7 +225,8 @@ if __name__ == '__main__':
     parser.add_argument('--train_data', required=True, help='path to training dataset')
     parser.add_argument('--valid_data', required=True, help='path to validation dataset')
     parser.add_argument('--manualSeed', type=int, default=1111, help='for random seed setting')
-    parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
+    parser.add_argument('--resume', type=str, default='', help='resume from pytorch ckpt')
+    parser.add_argument('--workers', type=int, default=4, help='number of data loading workers')
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
     parser.add_argument('--num_iter', type=int, default=300000, help='number of iterations to train for')
     parser.add_argument('--valInterval', type=int, default=2000, help='Interval between each validation')
