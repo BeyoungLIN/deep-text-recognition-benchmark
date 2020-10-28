@@ -268,6 +268,9 @@ if __name__ == '__main__':
     parser.add_argument('--page_orient', type=str, choices=['horizontal', 'vertical', 'single'], default='horizontal',
                         help='page orientation, or single char')
 
+    """ Appendix """
+    parser.add_argument('--appendix', type=str, default='', help='experiment name appendix')
+
     opt = parser.parse_args()
 
     if not opt.exp_name:
@@ -275,9 +278,9 @@ if __name__ == '__main__':
                        f'{opt.FeatureExtraction}-' \
                        f'{opt.SequenceModeling}-' \
                        f'{opt.Prediction}-' \
-                       f'{opt.character}-' \
-                       f'{opt.page_orient}'
+                       f'{opt.character}'
         opt.exp_name += f'-Seed{opt.manualSeed}'
+        opt.exp_name += f'-{opt.appendix}'
         # print(opt.exp_name)
 
     os.makedirs(f'./saved_models/{opt.exp_name}', exist_ok=True)
