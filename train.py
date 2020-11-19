@@ -175,7 +175,7 @@ def train(opt):
                 loss_log = f'[{iteration+1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
                 loss_avg.reset()
 
-                current_model_log = f'{"Current_accuracy":17s}: {current_accuracy:0.3f}, {"Current_norm_ED":17s}: {current_norm_ED:0.2f}'
+                current_model_log = f'{"Current_accuracy":17s}: {current_accuracy:0.4f}, {"Current_norm_ED":17s}: {current_norm_ED:0.4f}'
 
                 # keep best accuracy model (on valid dataset)
                 if current_accuracy > best_accuracy:
@@ -184,7 +184,7 @@ def train(opt):
                 if current_norm_ED > best_norm_ED:
                     best_norm_ED = current_norm_ED
                     torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_norm_ED.pth')
-                best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}, {"Best_norm_ED":17s}: {best_norm_ED:0.2f}'
+                best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.4f}, {"Best_norm_ED":17s}: {best_norm_ED:0.4f}'
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
                 print(loss_model_log)
