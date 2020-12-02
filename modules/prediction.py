@@ -1,6 +1,14 @@
+import os
+import sys
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib import ticker
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -46,16 +54,34 @@ class Attention(nn.Module):
         else:
             targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
             probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
-
+            alphas = []
             for i in range(num_steps):
                 char_onehots = self._char_to_onehot(targets, onehot_dim=self.num_classes)
                 hidden, alpha = self.attention_cell(hidden, batch_H, char_onehots)
+                alphas.append(alpha)
                 probs_step = self.generator(hidden[0])
                 probs[:, i, :] = probs_step
                 _, next_input = probs_step.max(1)
                 targets = next_input
+            alphas = torch.cat(alphas, dim=-1)
+            # for i in range(batch_size):
+            #     display_attention(alphas[i])
 
         return probs  # batch_size x num_steps x num_classes
+
+
+def display_attention(attention):
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    attention = attention.squeeze(0).cpu().detach().numpy()
+    cax = ax.matshow(attention, cmap='bone')
+    ax.tick_params(labelsize=15)
+
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    plt.show()
+    plt.close()
 
 
 class AttentionCell(nn.Module):
