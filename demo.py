@@ -92,7 +92,7 @@ def demo(opt):
                 # topk_probs = F.softmax(topk_probs, dim=-1)
                 for img_name, pred, pred_max_prob in zip(image_path_list, topk_chars, topk_probs):
                     if 'Attn' in opt.Prediction:
-                        pred = [p[:p.find('[s]')] for p in pred] # prune after "end of sentence" token ([s])
+                        pred = [p[:p.find('[s]')] for p in pred]  # prune after "end of sentence" token ([s])
                     print(img_name, end='')
                     log.write(img_name)
                     for pred_char, pred_prob in zip(pred, pred_max_prob):
