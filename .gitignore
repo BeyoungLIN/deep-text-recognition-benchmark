@@ -219,3 +219,6 @@ shufa_pic/
 
 # font
 fonts/
+
+# demo log
+log_demo_result.txt
