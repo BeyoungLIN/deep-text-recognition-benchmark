@@ -123,7 +123,7 @@ def demo(opt):
                         pred_EOS = pred.find('[s]')
                         pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
                         pred_max_prob = pred_max_prob[:pred_EOS]
-                        alpha = alpha[:pred_EOS]
+                        alpha = alpha[:pred_EOS + 1]
                         for alpha_line in alpha:
                             column = np.where(alpha_line>0.3)
                             column = np.mean(column)
