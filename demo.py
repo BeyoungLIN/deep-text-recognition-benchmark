@@ -58,7 +58,7 @@ def demo(opt):
             text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
 
             if 'CTC' in opt.Prediction:
-                preds = model(image, text_for_pred)
+                preds, alphas = model(image, text_for_pred, return_alphas=True)
 
                 # Select max probabilty (greedy decoding) then decode index to character
                 preds_size = torch.IntTensor([preds.size(1)] * batch_size)
@@ -67,7 +67,7 @@ def demo(opt):
                 preds_str = converter.decode(preds_index, preds_size)
 
             else:
-                preds = model(image, text_for_pred, is_train=False)
+                preds, alphas = model(image, text_for_pred, is_train=False, return_alphas=True)
 
                 if opt.batch_max_length == 1:
                     # select top_k probabilty (greedy decoding) then decode index to character
@@ -123,7 +123,9 @@ def demo(opt):
                     try:
                         confidence_score = pred_max_prob.cumprod(dim=0)[-1]
                     except IndexError:
-                        raise ValueError(f'{img_name:25s}\t{pred:25s}\t')
+                        confidence_score = 0.0
+                        # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
+                        # raise ValueError()
 
                     print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
                     log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')

@@ -171,48 +171,18 @@ class ResNet(nn.Module):
         self.bn0_2 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        '''
-        if blur:
-            self.maxpool1 = nn.Sequential(*[
-                nn.MaxPool2d(kernel_size=2, stride=1, padding=0),
-                BlurPool2d(channels=self.inplanes, stride=2)
-            ])
-        else:
-        '''
         self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.layer1 = self._make_layer(block, self.output_channel_block[0], layers[0])
         self.conv1 = nn.Conv2d(self.output_channel_block[0], self.output_channel_block[0],
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.output_channel_block[0])
 
-        '''
-        if blur:
-            self.maxpool2 = nn.Sequential(*[
-                nn.MaxPool2d(kernel_size=2, stride=1, padding=0),
-                BlurPool2d(channels=self.inplanes, stride=2)
-            ])
-        else:
-        '''
         self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.layer2 = self._make_layer(block, self.output_channel_block[1], layers[1], stride=1)
         self.conv2 = nn.Conv2d(self.output_channel_block[1], self.output_channel_block[1],
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(self.output_channel_block[1])
 
-        '''
-        if blur:
-            if self.page_orient == 'horizontal':
-                self.maxpool3 = nn.Sequential(*[
-                    nn.MaxPool2d(kernel_size=2, stride=(2, 1), padding=(0, 1)),
-                    BlurPool2d(channels=self.inplanes, stride=2)
-                ])
-            elif self.page_orient == 'vertical':
-                self.maxpool3 = nn.Sequential(*[
-                    nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0)),
-                    BlurPool2d(channels=self.inplanes, stride=2)
-                ])
-        else:
-        '''
         if self.page_orient == 'horizontal':
             self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(2, 1), padding=(0, 1))
         elif self.page_orient == 'vertical':

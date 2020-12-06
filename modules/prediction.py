@@ -43,6 +43,7 @@ class Attention(nn.Module):
                   torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
 
         if is_train:
+            alphas = []
             for i in range(num_steps):
                 # one-hot vectors for a i-th char. in a batch
                 char_onehots = self._char_to_onehot(text[:, i], onehot_dim=self.num_classes)
@@ -50,7 +51,7 @@ class Attention(nn.Module):
                 hidden, alpha = self.attention_cell(hidden, batch_H, char_onehots)
                 output_hiddens[:, i, :] = hidden[0]  # LSTM hidden index (0: hidden, 1: Cell)
             probs = self.generator(output_hiddens)
-
+            alphas = torch.cat(alphas, dim=-1)
         else:
             targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
             probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
