@@ -67,7 +67,7 @@ def demo(opt):
                 preds_str = converter.decode(preds_index.data, preds_size.data)
 
             else:
-                preds = model(image, text_for_pred, is_train=False)
+                preds, alphas = model(image, text_for_pred, is_train=False)
 
                 if opt.batch_max_length == 1:
                     # select top_k probabilty (greedy decoding) then decode index to character

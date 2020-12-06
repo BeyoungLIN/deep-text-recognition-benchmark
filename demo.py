@@ -9,6 +9,7 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data
 import torch.nn.functional as F
 import numpy as np
+from PIL import Image, ImageDraw
 
 from utils import CTCLabelConverter, AttnLabelConverter
 from dataset import RawDataset, AlignCollate
@@ -58,7 +59,7 @@ def demo(opt):
             text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
 
             if 'CTC' in opt.Prediction:
-                preds, alphas = model(image, text_for_pred, return_alphas=True)
+                preds = model(image, text_for_pred)
 
                 # Select max probabilty (greedy decoding) then decode index to character
                 preds_size = torch.IntTensor([preds.size(1)] * batch_size)
@@ -67,8 +68,8 @@ def demo(opt):
                 preds_str = converter.decode(preds_index.data, preds_size.data)
 
             else:
-                preds, alphas = model(image, text_for_pred, is_train=False, return_alphas=True)
-
+                preds, alphas = model(image, text_for_pred, is_train=False)
+                alphas = alphas.detach().cpu().numpy()
                 if opt.batch_max_length == 1:
                     # select top_k probabilty (greedy decoding) then decode index to character
                     k = opt.topk
@@ -113,22 +114,48 @@ def demo(opt):
 
                 preds_prob = F.softmax(preds, dim=2)
                 preds_max_prob, _ = preds_prob.max(dim=2)
-                for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
-                    if 'Attn' in opt.Prediction:
+                if 'Attn' in opt.Prediction:
+                    for idx, (img_name, pred, pred_max_prob) in enumerate(zip(image_path_list, preds_str, preds_max_prob)):
+                        alpha = alphas[idx, :, :].transpose()
+                        img = Image.open(img_name)
+                        draw = ImageDraw.Draw(img)
+                        width, height = img.size
                         pred_EOS = pred.find('[s]')
                         pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
                         pred_max_prob = pred_max_prob[:pred_EOS]
+                        alpha = alpha[:pred_EOS]
+                        for alpha_line in alpha:
+                            column = np.where(alpha_line>0.3)
+                            column = np.mean(column)
+                            line_height = int(column / 26 * height)
+                            draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
+                        img.show()
 
-                    # calculate confidence score (= multiply of pred_max_prob)
-                    try:
-                        confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-                    except IndexError:
-                        confidence_score = 0.0
-                        # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
-                        # raise ValueError()
+                        # calculate confidence score (= multiply of pred_max_prob)
+                        try:
+                            confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                        except IndexError:
+                            confidence_score = 0.0
+                            # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
+                            # raise ValueError()
 
-                    print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
-                    log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
+                        print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
+                        log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
+                else:
+                    for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
+                        pred_EOS = pred.find('[s]')
+                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                        pred_max_prob = pred_max_prob[:pred_EOS]
+                        # calculate confidence score (= multiply of pred_max_prob)
+                        try:
+                            confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                        except IndexError:
+                            confidence_score = 0.0
+                            # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
+                            # raise ValueError()
+
+                        print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
+                        log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
                 log.close()
 
 

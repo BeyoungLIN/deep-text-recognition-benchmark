@@ -68,7 +68,7 @@ class Attention(nn.Module):
             # for i in range(batch_size):
             #     display_attention(alphas[i])
 
-        return probs  # batch_size x num_steps x num_classes
+        return probs, alphas  # batch_size x num_steps x num_classes
 
 
 def display_attention(attention):

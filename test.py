@@ -107,7 +107,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
             preds_str = converter.decode(preds_index.data, preds_size.data)
         
         else:
-            preds = model(image, text_for_pred, is_train=False)
+            preds, alphas = model(image, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
             preds = preds[:, :text_for_loss.shape[1] - 1, :]
