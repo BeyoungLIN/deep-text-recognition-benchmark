@@ -163,7 +163,7 @@ def nn_method_vertical_train():
                         logits = logits.to(device)
                         loss = model(val_image, logits).item()
                         losses.append(loss)
-                    print('loss:', np.mean(losses))
+                    print(f'[iter: {iteration + 1} / 100000] loss: {np.mean(losses)}')
                 model.train()
 
             # save model per 1e+5 iter.
@@ -265,6 +265,6 @@ def cv_method_vertical(img):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('test_line_image/true_line/20201024234320.png', 0)
+    # img = cv2.imread('test_line_image/true_line/20201024234320.png', 0)
     # cv_method_vertical(img)
     nn_method_vertical_train()
