@@ -96,12 +96,10 @@ class ResNet_segment_text(nn.Module):
 
 def nn_method_vertical_train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ResNet_segment_text('saved_models/Line_baseline_xl/best_norm_ED.pth')
+    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
     model.to(device)
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
     AlignCollate_demo = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
-    Opt = collections.namedtuple('Opt', ['data_filtering_off'])
-    opt = Opt(True)
 
     train_data = LmdbDataset_2(root='dataset/split_train')
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=False, num_workers=4,
