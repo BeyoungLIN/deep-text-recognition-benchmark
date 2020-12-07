@@ -13,6 +13,7 @@ import torch.utils.data
 
 from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2
 from modules.ResNet_Shallow import ResNet
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 
 class BasicBlock(nn.Module):
@@ -59,7 +60,7 @@ class ResNet_segment_text(nn.Module):
         self.CNN.requires_grad_(False)
         self.load_CNN_weight(ckpt_path)
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
-        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
+        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
         self.Prediction = nn.Linear(64, 1)
         self.Sigmoid = nn.Sigmoid()
         # self.Loss = nn.SmoothL1Loss()
@@ -122,6 +123,7 @@ def nn_method_vertical_train():
     iteration = 0
 
     feature_length = 100
+    total_iter = 100000
 
     while True:
         # train part
@@ -140,7 +142,7 @@ def nn_method_vertical_train():
             loss.backward()
             optimizer.step()
 
-            if (iteration + 1) == 100000:
+            if (iteration + 1) == total_iter:
                 break
 
             # validation part
@@ -149,6 +151,8 @@ def nn_method_vertical_train():
                 model.eval()
                 with torch.no_grad():
                     losses = []
+                    gold = []
+                    preds = []
                     for val_image, val_labels in val_loader:
                         batch_size = val_image.size(0)
                         val_image = val_image.to(device)
@@ -161,7 +165,17 @@ def nn_method_vertical_train():
                         logits = logits.to(device)
                         loss = model(val_image, logits).item()
                         losses.append(loss)
-                    print(f'[iter: {iteration + 1} / 100000] loss: {np.mean(losses)}')
+                        pred = model(val_image)
+                        logits = logits.detach().cpu().numpy().reshape(-1).tolist()
+                        pred = pred.detach().cpu().numpy()
+                        pred = np.where(pred > 0.5, 1, 0).reshape(-1).tolist()
+                        gold.extend(logits)
+                        preds.extend(pred)
+                    p = precision_score(gold, preds)
+                    r = recall_score(gold, preds)
+                    f1 = f1_score(gold, preds)
+                    loss = np.round(np.mean(losses), 4)
+                    print(f'[iter: {iteration + 1} / {total_iter}] val_loss: {loss} p: {p}, r: {r}, f1: {f1}')
                 model.train()
 
             # save model per 1e+5 iter.
@@ -169,7 +183,7 @@ def nn_method_vertical_train():
                 os.makedirs('./saved_models/split/', exist_ok=True)
                 torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
 
-            if (iteration + 1) == 100000:
+            if (iteration + 1) == total_iter:
                 torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
                 print('end the training')
                 sys.exit()
