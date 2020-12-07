@@ -242,6 +242,50 @@ class LmdbDataset(Dataset):
         return img, label
 
 
+class LmdbDataset_2(Dataset):
+
+    def __init__(self, root):
+
+        self.root = root
+        self.env = lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+        if not self.env:
+            print('cannot create lmdb from %s' % (root))
+            sys.exit(0)
+
+        with self.env.begin(write=False) as txn:
+            nSamples = int(txn.get('num-samples'.encode()))
+            self.nSamples = nSamples
+            self.filtered_index_list = [index + 1 for index in range(self.nSamples)]
+
+    def __len__(self):
+        return self.nSamples
+
+    def __getitem__(self, index):
+        assert index <= len(self), 'index range error'
+        index = self.filtered_index_list[index]
+
+        with self.env.begin(write=False) as txn:
+            label_key = 'label-%09d'.encode() % index
+            label = txn.get(label_key).decode('utf-8')
+            img_key = 'image-%09d'.encode() % index
+            imgbuf = txn.get(img_key)
+
+            buf = six.BytesIO()
+            buf.write(imgbuf)
+            buf.seek(0)
+            try:
+                img = Image.open(buf).convert('L')
+            except IOError:
+                print(f'Corrupted image for {index}')
+                # make dummy image and dummy label for corrupted image.
+
+                img = Image.new('L', (32, 100))
+                label = '[dummy_label]'
+
+        return img, label
+
+
+
 class RawDataset(Dataset):
 
     def __init__(self, root, opt):
