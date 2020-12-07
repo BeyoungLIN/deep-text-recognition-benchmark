@@ -61,7 +61,7 @@ class ResNet_segment_text(nn.Module):
         self.load_CNN_weight(ckpt_path)
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
-        self.Prediction = nn.Linear(64, 1)
+        self.Prediction = nn.Linear(128, 1)
         self.Sigmoid = nn.Sigmoid()
         # self.Loss = nn.SmoothL1Loss()
         self.Loss = nn.BCELoss()
@@ -77,7 +77,7 @@ class ResNet_segment_text(nn.Module):
         self.CNN.load_state_dict(restore_ckpt)
 
     def forward(self, img, logits=None):
-        visual_feature, _ = self.CNN(img)
+        _, visual_feature = self.CNN(img)
 
         # visual_feature = self.Channel(visual_feature)
         # visual_feature = visual_feature.squeeze(1)
@@ -122,7 +122,7 @@ def nn_method_vertical_train():
 
     iteration = 0
 
-    feature_length = 100
+    feature_length = 50
     total_iter = 200000
 
     while True:
