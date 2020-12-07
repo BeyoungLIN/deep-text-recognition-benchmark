@@ -123,7 +123,7 @@ def nn_method_vertical_train():
     iteration = 0
 
     feature_length = 100
-    total_iter = 100000
+    total_iter = 200000
 
     while True:
         # train part
@@ -166,7 +166,8 @@ def nn_method_vertical_train():
                         loss = model(val_image, logits).item()
                         losses.append(loss)
                         pred = model(val_image)
-                        logits = logits.detach().cpu().numpy().reshape(-1).tolist()
+                        logits = logits.detach().cpu().int()
+                        logits = logits.numpy().reshape(-1).tolist()
                         pred = pred.detach().cpu().numpy()
                         pred = np.where(pred > 0.5, 1, 0).reshape(-1).tolist()
                         gold.extend(logits)
