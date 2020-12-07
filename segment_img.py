@@ -11,7 +11,7 @@ import torch
 from torch import nn
 import torch.utils.data
 
-from dataset import AlignCollate, RawDataset, LmdbDataset
+from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2
 from modules.ResNet_Shallow import ResNet
 
 
@@ -56,12 +56,13 @@ class ResNet_segment_text(nn.Module):
         super(ResNet_segment_text, self).__init__()
 
         self.CNN = ResNet(1, 512, BasicBlock, [1, 2, 5, 3], 'vertical')
-
         self.CNN.requires_grad_(False)
-
         self.load_CNN_weight(ckpt_path)
+        # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
-        self.Prediction = nn.Linear(512, 2)
+        self.Prediction = nn.Linear(64, 1)
+        self.Sigmoid = nn.Sigmoid()
+        # self.Loss = nn.SmoothL1Loss()
         self.Loss = nn.BCELoss()
 
     def load_CNN_weight(self, ckpt_path):
@@ -75,13 +76,17 @@ class ResNet_segment_text(nn.Module):
         self.CNN.load_state_dict(restore_ckpt)
 
     def forward(self, img, logits=None):
-        visual_feature1, visual_feature2 = self.CNN(img)
-        visual_feature = visual_feature1
+        visual_feature, _ = self.CNN(img)
+
+        # visual_feature = self.Channel(visual_feature)
+        # visual_feature = visual_feature.squeeze(1)
 
         visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
-        visual_feature = visual_feature.squeeze(3)
+        visual_feature = visual_feature.squeeze(-1)
 
-        prediciton = self.predict(visual_feature.contiguous())
+        prediciton = self.Prediction(visual_feature.contiguous())
+        prediciton = prediciton.squeeze(-1)
+        prediciton = self.Sigmoid(prediciton)
         if logits is None:
             return prediciton.detach()
         else:
@@ -98,11 +103,11 @@ def nn_method_vertical_train():
     Opt = collections.namedtuple('Opt', ['data_filtering_off'])
     opt = Opt(True)
 
-    train_data = LmdbDataset(root='datasets/split', opt=opt)
+    train_data = LmdbDataset_2(root='dataset/split_train')
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=False, num_workers=4,
                                               collate_fn=AlignCollate_demo, pin_memory=True)
-    val_data = LmdbDataset(root='datasets/split', opt=opt)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4,
+    val_data = LmdbDataset_2(root='dataset/split_val')
+    val_loader = torch.utils.data.DataLoader(val_data, batch_size=128, shuffle=False, num_workers=4,
                                              collate_fn=AlignCollate_demo, pin_memory=True)
 
     # filter that only require gradient decent
@@ -116,93 +121,68 @@ def nn_method_vertical_train():
     optimizer = torch.optim.Adam(filtered_parameters, lr=3e-4)
     print("Optimizer:", optimizer)
 
-    start_time = time.time()
-    best_accuracy = -1
-    best_norm_ED = -1
     iteration = 0
 
     feature_length = 100
 
     while True:
         # train part
-        for image_tensors, labels in train_loader:
-            batch_size = image_tensors.size(0)
-            image = image_tensors.to(device)
-            labels = [','.split(label) for label in labels]
+        for image, labels in train_loader:
+            batch_size = image.size(0)
+            image = image.to(device)
+            labels = [label.split(',') for label in labels]
             logits = torch.zeros((batch_size, feature_length))
             for i in range(batch_size):
-                for label in labels:
+                for label in labels[i]:
                     label = int(label)
-                    logits[label / feature_length] = 1
+                    logits[i][int((label - 1) * feature_length / 10000)] = 1
             logits = logits.to(device)
             model.zero_grad()
             loss = model(image, logits)
             loss.backward()
             optimizer.step()
 
-            iteration += 1
-
             if (iteration + 1) == 100000:
                 break
 
-        # validation part
-        if (iteration + 1) % 20000 == 0 or iteration == 0:  # To see training progress, we also conduct validation when 'iteration == 0'
+            # validation part
+            if (iteration + 1) % 20000 == 0 or iteration == 0:
 
-            # for log
-            with open(f'./saved_models/{opt.exp_name}/log_train.txt', 'a', encoding='utf-8') as log:
                 model.eval()
                 with torch.no_grad():
-                    valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, infer_time, length_of_data = validation(
-                        model, criterion, valid_loader, converter, opt)
+                    losses = []
+                    for val_image, val_labels in val_loader:
+                        batch_size = val_image.size(0)
+                        val_image = val_image.to(device)
+                        labels = [label.split(',') for label in val_labels]
+                        logits = torch.zeros((batch_size, feature_length))
+                        for i in range(batch_size):
+                            for label in labels[i]:
+                                label = int(label)
+                                logits[i][int((label - 1) * feature_length / 10000)] = 1
+                        logits = logits.to(device)
+                        loss = model(val_image, logits).item()
+                        losses.append(loss)
+                    print('loss:', np.mean(losses))
                 model.train()
 
-                # training loss and validation loss
-                loss_log = f'[{iteration + 1}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
-                loss_avg.reset()
+            # save model per 1e+5 iter.
+            if (iteration + 1) % 20000 == 0:
+                os.makedirs('./saved_models/split/', exist_ok=True)
+                torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
 
-                current_model_log = f'{"Current_accuracy":17s}: {current_accuracy:0.4f}, {"Current_norm_ED":17s}: {current_norm_ED:0.4f}'
+            if (iteration + 1) == 100000:
+                torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
+                print('end the training')
+                sys.exit()
 
-                # keep best accuracy model (on valid dataset)
-                if current_accuracy > best_accuracy:
-                    best_accuracy = current_accuracy
-                    torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_accuracy.pth')
-                if current_norm_ED > best_norm_ED:
-                    best_norm_ED = current_norm_ED
-                    torch.save(model.state_dict(), f'./saved_models/{opt.exp_name}/best_norm_ED.pth')
-                best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.4f}, {"Best_norm_ED":17s}: {best_norm_ED:0.4f}'
-
-                loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
-                print(loss_model_log)
-                log.write(loss_model_log + '\n')
-
-                # show some predicted results
-                dashed_line = '-' * 80
-                head = f'{"Ground Truth":25s} | {"Prediction":25s} | Confidence Score & T/F'
-                predicted_result_log = f'{dashed_line}\n{head}\n{dashed_line}\n'
-                for gt, pred, confidence in zip(labels[:5], preds[:5], confidence_score[:5]):
-                    if 'Attn' in opt.Prediction:
-                        gt = gt[:gt.find('[s]')]
-                        pred = pred[:pred.find('[s]')]
-
-                    predicted_result_log += f'{gt:25s} | {pred:25s} | {confidence:0.4f}\t{str(pred == gt)}\n'
-                predicted_result_log += f'{dashed_line}'
-                print(predicted_result_log)
-                log.write(predicted_result_log + '\n')
-
-        # save model per 1e+5 iter.
-        if (iteration + 1) % 20000 == 0:
-            os.makedirs('./saved_models/split/', exist_ok=True)
-            torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
-
-        if (iteration + 1) == 100000:
-            torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
-            print('end the training')
-            sys.exit()
+            iteration += 1
 
 
-def nn_method_vertical(img):
+def nn_method_vertical(img_path):
     net = ResNet_segment_text('saved_models/Line_baseline_xl/best_norm_ED.pth')
-    net.load_state_dict(torch.load('saved_models/Segment/best.pth'))
+    net.load_state_dict(torch.load('saved_models/split/iter_1000000.pth'))
+
 
 
 def cv_method_horizontal(img):
@@ -287,4 +267,4 @@ def cv_method_vertical(img):
 if __name__ == '__main__':
     img = cv2.imread('test_line_image/true_line/20201024234320.png', 0)
     # cv_method_vertical(img)
-    nn_method_vertical(img)
+    nn_method_vertical_train()
