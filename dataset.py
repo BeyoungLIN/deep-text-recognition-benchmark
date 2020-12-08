@@ -323,6 +323,37 @@ class RawDataset(Dataset):
         return img, self.image_path_list[index]
 
 
+
+class RawDataset_2(Dataset):
+
+    def __init__(self, root):
+        self.image_path_list = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            for name in filenames:
+                _, ext = os.path.splitext(name)
+                ext = ext.lower()
+                if ext == '.jpg' or ext == '.jpeg' or ext == '.png':
+                    self.image_path_list.append(os.path.join(dirpath, name))
+
+        self.image_path_list = natsorted(self.image_path_list)
+        self.nSamples = len(self.image_path_list)
+
+    def __len__(self):
+        return self.nSamples
+
+    def __getitem__(self, index):
+
+        try:
+            img = Image.open(self.image_path_list[index]).convert('L')
+
+        except IOError:
+            print(f'Corrupted image for {index}')
+            # make dummy image and dummy label for corrupted image.
+            img = Image.new('L', (32, 100))
+
+        return img, self.image_path_list[index]
+
+
 class PILDataset(Dataset):
 
     def __init__(self, opt, ImageList):

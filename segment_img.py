@@ -10,10 +10,14 @@ import collections
 import torch
 from torch import nn
 import torch.utils.data
-
-from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2
-from modules.ResNet_Shallow import ResNet
 from sklearn.metrics import precision_score, recall_score, f1_score
+from PIL import Image, ImageDraw
+
+from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2, RawDataset_2
+from modules.ResNet_Shallow import ResNet
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+feature_length = 50
 
 
 class BasicBlock(nn.Module):
@@ -96,18 +100,17 @@ class ResNet_segment_text(nn.Module):
 
 
 def nn_method_vertical_train():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
     model.to(device)
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
-    AlignCollate_demo = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
+    AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
 
     train_data = LmdbDataset_2(root='dataset/split_train')
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=False, num_workers=4,
-                                              collate_fn=AlignCollate_demo, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=128, shuffle=True, num_workers=4,
+                                               collate_fn=AlignCollater, pin_memory=True)
     val_data = LmdbDataset_2(root='dataset/split_val')
     val_loader = torch.utils.data.DataLoader(val_data, batch_size=128, shuffle=False, num_workers=4,
-                                             collate_fn=AlignCollate_demo, pin_memory=True)
+                                             collate_fn=AlignCollater, pin_memory=True)
 
     # filter that only require gradient decent
     filtered_parameters = []
@@ -122,7 +125,6 @@ def nn_method_vertical_train():
 
     iteration = 0
 
-    feature_length = 50
     total_iter = 233333
 
     while True:
@@ -192,10 +194,42 @@ def nn_method_vertical_train():
             iteration += 1
 
 
-def nn_method_vertical(img_path):
-    net = ResNet_segment_text('saved_models/Line_baseline_xl/best_norm_ED.pth')
-    net.load_state_dict(torch.load('saved_models/split/iter_1000000.pth'))
-
+def nn_method_vertical(img_path, score_threshold=0.1, NMS_threshold=1):
+    model = ResNet_segment_text('saved_models/Line_baseline_xl/best_norm_ED.pth')
+    model.load_state_dict(torch.load('saved_models/split/iter_20000.pth'))
+    model.to(device)
+    val_dataset = RawDataset_2(root=img_path)
+    AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
+    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0,
+                                                 collate_fn=AlignCollater, pin_memory=True)
+    for val_image, val_image_path in val_dataloader:
+        # batch_size = val_image.size(0)
+        val_image = val_image.to(device)
+        pred = model(val_image)
+        pred = pred.detach().cpu().numpy().reshape(-1).tolist()
+        candidate = [(score, idx) for idx, score in enumerate(pred)]
+        candidate.sort(reverse=True)
+        choosen_candidate = []
+        for score, idx in candidate:
+            if score < score_threshold:
+                break
+            NMS_flag = False
+            for choosen_idx in choosen_candidate:
+                if abs(choosen_idx - score) <= NMS_threshold:
+                    NMS_flag = True
+                    break
+            if NMS_flag:
+                continue
+            choosen_candidate.append(idx)
+        img = Image.open(val_image_path[0])
+        draw = ImageDraw.Draw(img)
+        width, height = img.size
+        split_height = []
+        for idx in choosen_candidate:
+            draw_height = idx / feature_length * height
+            split_height.append(draw_height)
+            draw.line(((0, draw_height), (width - 1, draw_height)), fill=(255, 0, 0), width=2)
+        img.show()
 
 
 def cv_method_horizontal(img):
@@ -243,7 +277,7 @@ def cv_method_horizontal(img):
 
 def cv_method_vertical(img):
     '''
-    Segmentation of line image to single characters. Based on horizontal profile.
+    Segmentation of line image to single characters. Based on vertical profile.
     '''
     inverted = cv2.bitwise_not(img)
     inverted = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
@@ -280,4 +314,5 @@ def cv_method_vertical(img):
 if __name__ == '__main__':
     # img = cv2.imread('test_line_image/true_line/20201024234320.png', 0)
     # cv_method_vertical(img)
-    nn_method_vertical_train()
+    # nn_method_vertical_train()
+    nn_method_vertical('test_line_image/true_line')
