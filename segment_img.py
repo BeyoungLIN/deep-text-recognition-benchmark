@@ -232,7 +232,7 @@ def nn_method_vertical(img_path, score_threshold=0.1, NMS_threshold=1):
         img.show()
 
 
-def cv_method_horizontal(img):
+def cv_method_horizontal(img, threshold=2):
     '''
     Segmentation of line image to single characters. Based on horizontal profile.
     '''
@@ -249,7 +249,6 @@ def cv_method_horizontal(img):
     print("Profile shape:", profile.shape)
 
     candidates = []
-    threshold = 2
     state = 0  # 0 = gap
     lastGap = -1
     for i in range(profile.shape[0]):
@@ -275,7 +274,7 @@ def cv_method_horizontal(img):
     return candidates
 
 
-def cv_method_vertical(img):
+def cv_method_vertical(img, threshold=10):
     '''
     Segmentation of line image to single characters. Based on vertical profile.
     '''
@@ -286,7 +285,6 @@ def cv_method_vertical(img):
     m = np.max(profile)
 
     candidates = []
-    threshold = 10
     state = 0  # 0 = gap
     lastGap = -1
     for i in range(profile.shape[0]):
