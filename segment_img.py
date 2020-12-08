@@ -194,9 +194,9 @@ def nn_method_vertical_train():
             iteration += 1
 
 
-def nn_method_vertical(img_path, score_threshold=0.1, NMS_threshold=1):
-    model = ResNet_segment_text('saved_models/Line_baseline_xl/best_norm_ED.pth')
-    model.load_state_dict(torch.load('saved_models/split/iter_20000.pth'))
+def nn_method_vertical(img_path, ckpt_path, score_threshold=1e-1, NMS_threshold=3):
+    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
+    model.load_state_dict(torch.load(ckpt_path))
     model.to(device)
     val_dataset = RawDataset_2(root=img_path)
     AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
@@ -233,9 +233,9 @@ def nn_method_vertical(img_path, score_threshold=0.1, NMS_threshold=1):
 
 
 def cv_method_horizontal(img, threshold=2):
-    '''
+    """
     Segmentation of line image to single characters. Based on horizontal profile.
-    '''
+    """
     inverted = cv2.bitwise_not(img)
     inverted = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
     print(inverted.shape)
@@ -275,11 +275,11 @@ def cv_method_horizontal(img, threshold=2):
 
 
 def cv_method_vertical(img, threshold=10):
-    '''
+    """
     Segmentation of line image to single characters. Based on vertical profile.
-    '''
+    """
     inverted = cv2.bitwise_not(img)
-    inverted = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    _, inverted = cv2.threshold(inverted, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     profile = inverted.sum(axis=1)
     result = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     m = np.max(profile)
@@ -305,12 +305,14 @@ def cv_method_vertical(img, threshold=10):
         cv2.line(result, (0, c[1]), (result.shape[1], c[1]), (0, 0, 255), 1)
 
     cv2.imwrite('result/cv2_segment.jpg', result)
+    cv2.imshow('img', result)
+    cv2.waitKey()
 
     return candidates
 
 
 if __name__ == '__main__':
-    # img = cv2.imread('test_line_image/true_line/20201024234320.png', 0)
-    # cv_method_vertical(img)
+    img = cv2.imread('test_line_image/true_line/20201024234424.png', 0)
+    cv_method_vertical(img)
     # nn_method_vertical_train()
-    nn_method_vertical('test_line_image/true_line')
+    # nn_method_vertical('test_line_image/true_line', 'saved_models/split/iter_120000.pth')
