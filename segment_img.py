@@ -123,7 +123,7 @@ def nn_method_vertical_train():
     iteration = 0
 
     feature_length = 50
-    total_iter = 200000
+    total_iter = 233333
 
     while True:
         # train part
