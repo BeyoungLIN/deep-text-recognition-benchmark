@@ -185,7 +185,7 @@ def nn_method_vertical_train():
                 torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
 
             if (iteration + 1) == total_iter:
-                torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
+                torch.save(model.state_dict(), f'./saved_models/split/iter_final_{iteration + 1}.pth')
                 print('end the training')
                 sys.exit()
 
