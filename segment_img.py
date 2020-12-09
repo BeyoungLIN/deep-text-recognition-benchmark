@@ -137,10 +137,12 @@ def nn_method_vertical_train():
     total_iter = 233333
     ckpt_step = 20000
     val_step = 20000
+    output_step = 1000
 
     while True:
         # train part
         for image, labels in train_loader:
+            start_time = time.time()
             batch_size = image.size(0)
             image = image.to(device)
             labels = [label.split(',') for label in labels]
@@ -155,15 +157,18 @@ def nn_method_vertical_train():
             loss.backward()
             optimizer.step()
 
+            if (iteration + 1) % output_step == 0:
+                print(f'[iter: {iteration + 1} / {total_iter}] loss: {np.round(loss.item(), 4)}, time: {np.round(time.time() - start_time, 4)}', flush=True)
+
             if (iteration + 1) == total_iter:
                 break
 
             # validation part
             if (iteration + 1) % val_step == 0 or iteration == 0:
-
+                start_val_time = time.time()
                 model.eval()
                 with torch.no_grad():
-                    losses = []
+                    # losses = []
                     gold = []
                     preds = []
                     for val_image, val_labels in val_loader:
@@ -176,8 +181,8 @@ def nn_method_vertical_train():
                                 label = int(label)
                                 logits[i][int((label - 1) * feature_length / 10000)] = 1
                         logits = logits.to(device)
-                        loss = model(val_image, logits).item()
-                        losses.append(loss)
+                        # loss = model(val_image, logits).item()
+                        # losses.append(loss)
                         pred = model(val_image)
                         logits = logits.detach().cpu().int()
                         logits = logits.numpy().reshape(-1).tolist()
@@ -188,17 +193,16 @@ def nn_method_vertical_train():
                     p = precision_score(gold, preds)
                     r = recall_score(gold, preds)
                     f1 = f1_score(gold, preds)
-                    loss = np.round(np.mean(losses), 4)
-                    print(f'[iter: {iteration + 1} / {total_iter}] val_loss: {loss} p: {p}, r: {r}, f1: {f1}', flush=True)
+                    print(f'[iter: {iteration + 1} / {total_iter}] p: {p}, r: {r}, f1: {f1}, time: {np.round(time.time() - start_val_time)}', flush=True)
                 model.train()
 
             # save model per 1e+5 iter.
             if (iteration + 1) % ckpt_step == 0:
-                os.makedirs('./saved_models/split/', exist_ok=True)
-                torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
+                os.makedirs('./saved_models/split_None/', exist_ok=True)
+                torch.save(model.state_dict(), f'./saved_models/split_None/iter_{iteration + 1}.pth')
 
             if (iteration + 1) == total_iter:
-                torch.save(model.state_dict(), f'./saved_models/split/iter_final_{iteration + 1}.pth')
+                torch.save(model.state_dict(), f'./saved_models/split_None/iter_final_{iteration + 1}.pth')
                 print('end the training')
                 return
 
