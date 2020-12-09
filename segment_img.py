@@ -70,7 +70,7 @@ class ResNet_segment_text(nn.Module):
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
         self.SequenceModeling = nn.Sequential(
-                BidirectionalLSTM(self.outputDim, self.hidden_dim, self.hidden_dim),
+                BidirectionalLSTM(self.output_dim, self.hidden_dim, self.hidden_dim),
                 BidirectionalLSTM(self.hidden_dim, self.hidden_dim, self.hidden_dim))
         self.Prediction = nn.Linear(self.hidden_dim, 1)
         # self.Loss = nn.SmoothL1Loss()
