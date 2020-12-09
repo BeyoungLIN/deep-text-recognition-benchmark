@@ -82,12 +82,32 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.conv0_2(x)  # (batch_size, 64, H, W)
         x = self.bn0_2(x)
-        x1 = self.relu(x)
+        x = self.relu(x)
 
-        x = self.maxpool1(x1)  # (batch_size, 64, H/2, W/2)
+        # x = self.maxpool1(x)  # (batch_size, 64, H/2, W/2)
         x = self.layer1(x)  # (batch_size, 128, H/2, W/2)
         x = self.conv1(x)
         x = self.bn1(x)
-        x2 = self.relu(x)
+        x = self.relu(x)
 
-        return x1, x2
+        # x = self.maxpool2(x)  # (batch_size, 128, H/4, W/4)
+        x = self.layer2(x)  # (batch_size, 256, H/4, W/4)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+
+        # x = self.maxpool3(x)  # (batch_size, 256, H/8, W/4+1) or (batch_size, 256, H/4+1, W/8)
+        x = self.layer3(x)  # (batch_size, 512, H/8, W/4+1) or (batch_size, 512, H/4+1, W/8)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+
+        x = self.layer4(x)
+        x = self.conv4_1(x)  # (batch_size, 512, H/16, W/4+2) or (batch_size, 512, H/4+2, W/16)
+        x = self.bn4_1(x)
+        x = self.relu(x)
+        x = self.conv4_2(x)  # (batch_size, 512, H/16-1, W/4+1) or (batch_size, 512, H/4+1, W/16-1)
+        x = self.bn4_2(x)
+        x = self.relu(x)
+
+        return x

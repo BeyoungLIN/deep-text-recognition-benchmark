@@ -10,14 +10,16 @@ import collections
 import torch
 from torch import nn
 import torch.utils.data
+from torch.nn import functional as F
 from sklearn.metrics import precision_score, recall_score, f1_score
 from PIL import Image, ImageDraw
 
 from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2, RawDataset_2
 from modules.ResNet_Shallow import ResNet
+from modules.sequence_modeling import BidirectionalLSTM
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-feature_length = 50
+feature_length = 100
 
 
 class BasicBlock(nn.Module):
@@ -65,7 +67,10 @@ class ResNet_segment_text(nn.Module):
         self.load_CNN_weight(ckpt_path)
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
-        self.Prediction = nn.Linear(128, 1)
+        self.SequenceModeling = nn.Sequential(
+                BidirectionalLSTM(512, 512, 512),
+                BidirectionalLSTM(512, 512, 512))
+        self.Prediction = nn.Linear(512, 1)
         self.Sigmoid = nn.Sigmoid()
         # self.Loss = nn.SmoothL1Loss()
         self.Loss = nn.BCELoss()
@@ -81,7 +86,7 @@ class ResNet_segment_text(nn.Module):
         self.CNN.load_state_dict(restore_ckpt)
 
     def forward(self, img, logits=None):
-        _, visual_feature = self.CNN(img)
+        visual_feature = self.CNN(img)
 
         # visual_feature = self.Channel(visual_feature)
         # visual_feature = visual_feature.squeeze(1)
@@ -89,7 +94,9 @@ class ResNet_segment_text(nn.Module):
         visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
         visual_feature = visual_feature.squeeze(-1)
 
-        prediciton = self.Prediction(visual_feature.contiguous())
+        contextual_feature = self.SequenceModeling(visual_feature)
+
+        prediciton = self.Prediction(contextual_feature.contiguous())
         prediciton = prediciton.squeeze(-1)
         prediciton = self.Sigmoid(prediciton)
         if logits is None:
@@ -312,7 +319,7 @@ def cv_method_vertical(img, threshold=10):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('test_line_image/true_line/20201024234424.png', 0)
-    cv_method_vertical(img)
-    # nn_method_vertical_train()
+    # img = cv2.imread('test_line_image/true_line/20201024234424.png', 0)
+    # cv_method_vertical(img)
+    nn_method_vertical_train()
     # nn_method_vertical('test_line_image/true_line', 'saved_models/split/iter_120000.pth')
