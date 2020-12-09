@@ -69,10 +69,13 @@ class ResNet_segment_text(nn.Module):
             self.CNN.requires_grad_(False)
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
+        '''
         self.SequenceModeling = nn.Sequential(
                 BidirectionalLSTM(self.output_dim, self.hidden_dim, self.hidden_dim),
                 BidirectionalLSTM(self.hidden_dim, self.hidden_dim, self.hidden_dim))
-        self.Prediction = nn.Linear(self.hidden_dim, 1)
+        '''
+        # self.Prediction = nn.Linear(self.hidden_dim, 1)
+        self.Prediction = nn.Linear(self.output_dim, 1)
         # self.Loss = nn.SmoothL1Loss()
         self.Loss = nn.BCELoss()
 
@@ -92,7 +95,8 @@ class ResNet_segment_text(nn.Module):
         visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
         visual_feature = visual_feature.squeeze(-1)
 
-        contextual_feature = self.SequenceModeling(visual_feature)
+        # contextual_feature = self.SequenceModeling(visual_feature)
+        contextual_feature = visual_feature
 
         prediciton = self.Prediction(contextual_feature.contiguous())
         prediciton = prediciton.squeeze(-1)
