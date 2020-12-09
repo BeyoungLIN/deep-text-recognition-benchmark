@@ -59,19 +59,20 @@ class BasicBlock(nn.Module):
 
 
 class ResNet_segment_text(nn.Module):
-    def __init__(self, ckpt_path, free_CNN=True):
+    def __init__(self, ckpt_path, freeze_CNN=True):
         super(ResNet_segment_text, self).__init__()
-
-        self.CNN = ResNet(1, 512, BasicBlock, [1, 2, 5, 3], 'vertical')
-        self.CNN.requires_grad_(False)
+        self.output_dim = 512
+        self.hidden_dim = 128
+        self.CNN = ResNet(1, self.output_dim, BasicBlock, [1, 2, 5, 3], 'vertical')
         self.load_CNN_weight(ckpt_path)
+        if freeze_CNN:
+            self.CNN.requires_grad_(False)
         # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
         self.SequenceModeling = nn.Sequential(
-                BidirectionalLSTM(512, 512, 512),
-                BidirectionalLSTM(512, 512, 512))
-        self.Prediction = nn.Linear(512, 1)
-        self.Sigmoid = nn.Sigmoid()
+                BidirectionalLSTM(self.outputDim, self.hidden_dim, self.hidden_dim),
+                BidirectionalLSTM(self.hidden_dim, self.hidden_dim, self.hidden_dim))
+        self.Prediction = nn.Linear(self.hidden_dim, 1)
         # self.Loss = nn.SmoothL1Loss()
         self.Loss = nn.BCELoss()
 
@@ -88,9 +89,6 @@ class ResNet_segment_text(nn.Module):
     def forward(self, img, logits=None):
         visual_feature = self.CNN(img)
 
-        # visual_feature = self.Channel(visual_feature)
-        # visual_feature = visual_feature.squeeze(1)
-
         visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
         visual_feature = visual_feature.squeeze(-1)
 
@@ -98,7 +96,7 @@ class ResNet_segment_text(nn.Module):
 
         prediciton = self.Prediction(contextual_feature.contiguous())
         prediciton = prediciton.squeeze(-1)
-        prediciton = self.Sigmoid(prediciton)
+        prediciton = torch.sigmoid(prediciton)
         if logits is None:
             return prediciton.detach()
         else:
@@ -133,6 +131,8 @@ def nn_method_vertical_train():
     iteration = 0
 
     total_iter = 233333
+    ckpt_step = 20000
+    val_step = 20000
 
     while True:
         # train part
@@ -155,7 +155,7 @@ def nn_method_vertical_train():
                 break
 
             # validation part
-            if (iteration + 1) % 20000 == 0 or iteration == 0:
+            if (iteration + 1) % val_step == 0 or iteration == 0:
 
                 model.eval()
                 with torch.no_grad():
@@ -185,18 +185,18 @@ def nn_method_vertical_train():
                     r = recall_score(gold, preds)
                     f1 = f1_score(gold, preds)
                     loss = np.round(np.mean(losses), 4)
-                    print(f'[iter: {iteration + 1} / {total_iter}] val_loss: {loss} p: {p}, r: {r}, f1: {f1}')
+                    print(f'[iter: {iteration + 1} / {total_iter}] val_loss: {loss} p: {p}, r: {r}, f1: {f1}', flush=True)
                 model.train()
 
             # save model per 1e+5 iter.
-            if (iteration + 1) % 20000 == 0:
+            if (iteration + 1) % ckpt_step == 0:
                 os.makedirs('./saved_models/split/', exist_ok=True)
                 torch.save(model.state_dict(), f'./saved_models/split/iter_{iteration + 1}.pth')
 
             if (iteration + 1) == total_iter:
                 torch.save(model.state_dict(), f'./saved_models/split/iter_final_{iteration + 1}.pth')
                 print('end the training')
-                sys.exit()
+                return
 
             iteration += 1
 
