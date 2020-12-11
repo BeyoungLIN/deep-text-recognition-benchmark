@@ -16,46 +16,11 @@ from PIL import Image, ImageDraw
 
 from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2, RawDataset_2
 from modules.ResNet_Shallow import ResNet
+from modules.feature_extraction import BasicBlock
 from modules.sequence_modeling import BidirectionalLSTM
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-feature_length = 100
-
-
-class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(BasicBlock, self).__init__()
-        self.conv1 = self._conv3x3(inplanes, planes)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = self._conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-
-    def _conv3x3(self, in_planes, out_planes, stride=1):
-        "3x3 convolution with padding"
-        return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                         padding=1, bias=False)
-
-    def forward(self, x):
-        residual = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-
-        if self.downsample is not None:
-            residual = self.downsample(x)
-        out += residual
-        out = self.relu(out)
-
-        return out
+feature_length = 416
 
 
 class ResNet_segment_text(nn.Module):
@@ -63,7 +28,7 @@ class ResNet_segment_text(nn.Module):
         super(ResNet_segment_text, self).__init__()
         self.output_dim = 512
         self.hidden_dim = 128
-        self.CNN = ResNet(1, self.output_dim, BasicBlock, [1, 2, 5, 3], 'vertical')
+        self.CNN = ResNet(1, self.output_dim, BasicBlock, [1, 2, 5, 3])
         self.load_CNN_weight(ckpt_path)
         if freeze_CNN:
             self.CNN.requires_grad_(False)
@@ -75,9 +40,9 @@ class ResNet_segment_text(nn.Module):
                 BidirectionalLSTM(self.hidden_dim, self.hidden_dim, self.hidden_dim))
         '''
         # self.Prediction = nn.Linear(self.hidden_dim, 1)
-        self.Prediction = nn.Linear(self.output_dim, 1)
+        # self.Prediction = nn.Linear(self.output_dim, 1)
         # self.Loss = nn.SmoothL1Loss()
-        self.Loss = nn.BCELoss()
+        # self.Loss = nn.BCELoss()
 
     def load_CNN_weight(self, ckpt_path):
         restore_ckpt = collections.OrderedDict()
@@ -87,9 +52,9 @@ class ResNet_segment_text(nn.Module):
                 k = k.split('.')
                 new_k = '.'.join(k[3:])
                 restore_ckpt[new_k] = v
-        self.CNN.load_state_dict(restore_ckpt)
+        self.CNN.load_state_dict(restore_ckpt, strict=False)
 
-    def forward(self, img, logits=None):
+    def forward(self, img, logits=None, weights=None):
         visual_feature = self.CNN(img)
 
         visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
@@ -98,18 +63,30 @@ class ResNet_segment_text(nn.Module):
         # contextual_feature = self.SequenceModeling(visual_feature)
         contextual_feature = visual_feature
 
-        prediciton = self.Prediction(contextual_feature.contiguous())
-        prediciton = prediciton.squeeze(-1)
-        prediciton = torch.sigmoid(prediciton)
+        # predicition = self.Prediction(contextual_feature.contiguous())
+        predicition = contextual_feature
+        predicition = predicition.squeeze(-1)
+        predicition = torch.sigmoid(predicition)
         if logits is None:
-            return prediciton.detach()
+            return predicition.detach()
         else:
-            loss = self.Loss(prediciton, logits)
+            loss = nn.BCELoss(weight=weights)(predicition, logits)
             return loss
 
 
-def nn_method_vertical_train():
-    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
+def get_logits_and_weights(batch_size, labels, alpha, beta):
+    logits = torch.ones((batch_size, feature_length))
+    weights = torch.ones((batch_size, feature_length)) * alpha
+    for i in range(batch_size):
+        for label in labels[i]:
+            label = int(label)
+            logits[i][int((label - 1) * feature_length / 10000)] = 0
+            weights[i][int((label - 1) * feature_length / 10000)] = beta
+    return logits, weights
+
+
+def nn_method_vertical_train(freeze_CNN):
+    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth', freeze_CNN=freeze_CNN)
     model.to(device)
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
     AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
@@ -138,6 +115,8 @@ def nn_method_vertical_train():
     ckpt_step = 20000
     val_step = 20000
     output_step = 1000
+    alpha = 0.9
+    beta = 0.1
 
     while True:
         # train part
@@ -146,14 +125,11 @@ def nn_method_vertical_train():
             batch_size = image.size(0)
             image = image.to(device)
             labels = [label.split(',') for label in labels]
-            logits = torch.zeros((batch_size, feature_length))
-            for i in range(batch_size):
-                for label in labels[i]:
-                    label = int(label)
-                    logits[i][int((label - 1) * feature_length / 10000)] = 1
+            logits, weights = get_logits_and_weights(batch_size, labels, alpha, beta)
             logits = logits.to(device)
+            weights = weights.to(device)
             model.zero_grad()
-            loss = model(image, logits)
+            loss = model(image, logits, weights)
             loss.backward()
             optimizer.step()
 
@@ -177,20 +153,15 @@ def nn_method_vertical_train():
                     gold = []
                     preds = []
                     for val_image, val_labels in val_loader:
-                        batch_size = val_image.size(0)
+                        val_batch_size = val_image.size(0)
                         val_image = val_image.to(device)
-                        labels = [label.split(',') for label in val_labels]
-                        logits = torch.zeros((batch_size, feature_length))
-                        for i in range(batch_size):
-                            for label in labels[i]:
-                                label = int(label)
-                                logits[i][int((label - 1) * feature_length / 10000)] = 1
-                        logits = logits.to(device)
-                        # loss = model(val_image, logits).item()
-                        # losses.append(loss)
+                        val_labels = [label.split(',') for label in val_labels]
+                        val_logits, _ = get_logits_and_weights(val_batch_size, val_labels, alpha, beta)
+                        val_logits = val_logits.to(device)
+                        # val_loss = model(val_image, val_logits).item()
+                        # losses.append(val_loss)
                         pred = model(val_image)
-                        logits = logits.detach().cpu().int()
-                        logits = logits.numpy().reshape(-1).tolist()
+                        logits = val_logits.detach().cpu().int().numpy().reshape(-1).tolist()
                         pred = pred.detach().cpu().numpy()
                         pred = np.where(pred > 0.5, 1, 0).reshape(-1).tolist()
                         gold.extend(logits)
@@ -206,20 +177,22 @@ def nn_method_vertical_train():
                     ), flush=True)
                 model.train()
 
+            save_root = './saved_models/split_Upconv'
+
             # save model per 1e+5 iter.
             if (iteration + 1) % ckpt_step == 0:
-                os.makedirs('./saved_models/split_None/', exist_ok=True)
-                torch.save(model.state_dict(), f'./saved_models/split_None/iter_{iteration + 1}.pth')
+                os.makedirs(save_root, exist_ok=True)
+                torch.save(model.state_dict(), f'{save_root}/iter_{iteration + 1}.pth')
 
             if (iteration + 1) == total_iter:
-                torch.save(model.state_dict(), f'./saved_models/split_None/iter_final_{iteration + 1}.pth')
+                torch.save(model.state_dict(), f'{save_root}/iter_final_{iteration + 1}.pth')
                 print('end the training')
                 return
 
             iteration += 1
 
 
-def nn_method_vertical(img_path, ckpt_path, score_threshold=1e-1, NMS_threshold=3):
+def nn_method_vertical(img_path, ckpt_path, score_threshold=0.5, NMS_threshold=3):
     model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
     model.load_state_dict(torch.load(ckpt_path))
     model.to(device)
@@ -233,10 +206,10 @@ def nn_method_vertical(img_path, ckpt_path, score_threshold=1e-1, NMS_threshold=
         pred = model(val_image)
         pred = pred.detach().cpu().numpy().reshape(-1).tolist()
         candidate = [(score, idx) for idx, score in enumerate(pred)]
-        candidate.sort(reverse=True)
+        candidate.sort(reverse=False)
         choosen_candidate = []
         for score, idx in candidate:
-            if score < score_threshold:
+            if score > score_threshold:
                 break
             NMS_flag = False
             for choosen_idx in choosen_candidate:
@@ -339,5 +312,5 @@ def cv_method_vertical(img, threshold=10):
 if __name__ == '__main__':
     # img = cv2.imread('test_line_image/true_line/20201024234424.png', 0)
     # cv_method_vertical(img)
-    nn_method_vertical_train()
+    nn_method_vertical_train(freeze_CNN=False)
     # nn_method_vertical('test_line_image/true_line', 'saved_models/split/iter_120000.pth')
