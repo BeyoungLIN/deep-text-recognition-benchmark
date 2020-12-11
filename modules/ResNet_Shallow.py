@@ -6,10 +6,8 @@ from torch import nn
 
 class ResNet(nn.Module):
 
-    def __init__(self, input_channel, output_channel, block, layers, page_orient='horizontal'):
+    def __init__(self, input_channel, output_channel, block, layers):
         super(ResNet, self).__init__()
-        # self.blur = blur
-        self.page_orient = page_orient
 
         self.output_channel_block = [int(output_channel / 4), int(output_channel / 2), output_channel, output_channel]
 
@@ -34,10 +32,7 @@ class ResNet(nn.Module):
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(self.output_channel_block[1])
 
-        if self.page_orient == 'horizontal':
-            self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(2, 1), padding=(0, 1))
-        elif self.page_orient == 'vertical':
-            self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0))
+        self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0))
 
         self.layer3 = self._make_layer(block, self.output_channel_block[2], layers[2], stride=1)
         self.conv3 = nn.Conv2d(self.output_channel_block[2], self.output_channel_block[2],
@@ -46,17 +41,22 @@ class ResNet(nn.Module):
 
         self.layer4 = self._make_layer(block, self.output_channel_block[3], layers[3], stride=1)
 
-        if self.page_orient == 'horizontal':
-            self.conv4_1 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
-                                     kernel_size=2, stride=(2, 1), padding=(0, 1), bias=False)
-        elif self.page_orient == 'vertical':
-            self.conv4_1 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
-                                     kernel_size=2, stride=(1, 2), padding=(1, 0), bias=False)
+        self.conv4_1 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
+                                 kernel_size=2, stride=(1, 2), padding=(1, 0), bias=False)
 
         self.bn4_1 = nn.BatchNorm2d(self.output_channel_block[3])
         self.conv4_2 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
                                  kernel_size=2, stride=1, padding=0, bias=False)
         self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
+
+        self.up_conv1 = nn.ConvTranspose2d(self.output_channel_block[3], self.output_channel_block[2],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv2 = nn.ConvTranspose2d(self.output_channel_block[2], self.output_channel_block[1],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv3 = nn.ConvTranspose2d(self.output_channel_block[1], self.output_channel_block[0],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv4 = nn.ConvTranspose2d(self.output_channel_block[0], 1,
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -84,19 +84,19 @@ class ResNet(nn.Module):
         x = self.bn0_2(x)
         x = self.relu(x)
 
-        # x = self.maxpool1(x)  # (batch_size, 64, H/2, W/2)
+        x = self.maxpool1(x)  # (batch_size, 64, H/2, W/2)
         x = self.layer1(x)  # (batch_size, 128, H/2, W/2)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
 
-        # x = self.maxpool2(x)  # (batch_size, 128, H/4, W/4)
+        x = self.maxpool2(x)  # (batch_size, 128, H/4, W/4)
         x = self.layer2(x)  # (batch_size, 256, H/4, W/4)
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
 
-        # x = self.maxpool3(x)  # (batch_size, 256, H/8, W/4+1) or (batch_size, 256, H/4+1, W/8)
+        x = self.maxpool3(x)  # (batch_size, 256, H/8, W/4+1) or (batch_size, 256, H/4+1, W/8)
         x = self.layer3(x)  # (batch_size, 512, H/8, W/4+1) or (batch_size, 512, H/4+1, W/8)
         x = self.conv3(x)
         x = self.bn3(x)
@@ -109,5 +109,13 @@ class ResNet(nn.Module):
         x = self.conv4_2(x)  # (batch_size, 512, H/16-1, W/4+1) or (batch_size, 512, H/4+1, W/16-1)
         x = self.bn4_2(x)
         x = self.relu(x)
+
+        x = self.up_conv1(x)
+        x = self.relu(x)
+        x = self.up_conv2(x)
+        x = self.relu(x)
+        x = self.up_conv3(x)
+        x = self.relu(x)
+        x = self.up_conv4(x)
 
         return x
