@@ -158,7 +158,12 @@ def nn_method_vertical_train():
             optimizer.step()
 
             if (iteration + 1) % output_step == 0:
-                print(f'[iter: {iteration + 1} / {total_iter}] loss: {np.round(loss.item(), 4)}, time: {np.round(time.time() - start_time, 4)}', flush=True)
+                print('[iter: {} / {}] loss: {}, time: {}'.format(
+                    iteration + 1,
+                    total_iter,
+                    np.round(loss.item(), 4),
+                    np.round(time.time() - start_time, 4)
+                ), flush=True)
 
             if (iteration + 1) == total_iter:
                 break
@@ -190,10 +195,15 @@ def nn_method_vertical_train():
                         pred = np.where(pred > 0.5, 1, 0).reshape(-1).tolist()
                         gold.extend(logits)
                         preds.extend(pred)
-                    p = precision_score(gold, preds)
-                    r = recall_score(gold, preds)
-                    f1 = f1_score(gold, preds)
-                    print(f'[iter: {iteration + 1} / {total_iter}] p: {p}, r: {r}, f1: {f1}, time: {np.round(time.time() - start_val_time)}', flush=True)
+                    p = np.round(precision_score(gold, preds), 4)
+                    r = np.round(recall_score(gold, preds), 4)
+                    f1 = np.round(f1_score(gold, preds), 4)
+                    print('[iter: {} / {}] p: {}, r: {}, f1: {}, time: {}'.format(
+                        iteration + 1,
+                        total_iter,
+                        p, r, f1,
+                        np.round(time.time() - start_val_time, 1)
+                    ), flush=True)
                 model.train()
 
             # save model per 1e+5 iter.
