@@ -74,9 +74,7 @@ def demo(opt):
                     # select top_k probabilty (greedy decoding) then decode index to character
                     k = opt.topk
                     preds = F.softmax(preds, dim=2)
-                    topk = preds.topk(k)
-                    topk_id = topk[1]
-                    topk_prob = topk[0]
+                    topk_prob, topk_id = preds.topk(k)
                     topk_id = topk_id.detach().cpu()[:, 0, :].unsqueeze(dim=1).numpy()  # (batch_size, topk)
                     # concat 3(['s']) to the end of ids
                     topk_s = np.ones_like(topk_id) * 3
@@ -85,8 +83,14 @@ def demo(opt):
                     topk_probs = topk_prob.detach().cpu()[:, 0, :]  # (batch_size, topk)
                 else:
                     # select max probabilty (greedy decoding) then decode index to character
-                    _, preds_index = preds.max(2)
-                    preds_str = converter.decode(preds_index, length_for_pred)
+                    k = opt.topk
+                    # _, preds_index = preds.max(dim=2)
+                    # preds_str = converter.decode(preds_index, length_for_pred)
+                    preds = F.softmax(preds, dim=2)
+                    topk_prob, topk_id = preds.topk(k, dim=2)
+                    topk_id = topk_id.detach().cpu().numpy()  # (batch_size, topk)
+                    topk_probs = topk_prob.detach().cpu()
+                    topk_strs = converter.decode(topk_id, length_for_pred)
 
             if opt.batch_max_length == 1:
                 log = open(f'./log_demo_result.csv', 'a', encoding='utf-8')
@@ -112,17 +116,17 @@ def demo(opt):
                 print(f'{dashed_line}\n{head}\n{dashed_line}')
                 log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
 
-                preds_prob = F.softmax(preds, dim=2)
-                preds_max_prob, _ = preds_prob.max(dim=2)
+                # preds_prob = F.softmax(preds, dim=2)
+                # preds_max_prob, _ = preds_prob.max(dim=2)
                 if 'Attn' in opt.Prediction:
-                    for idx, (img_name, pred, pred_max_prob) in enumerate(zip(image_path_list, preds_str, preds_max_prob)):
+                    for idx, (img_name, pred, pred_max_prob) in enumerate(zip(image_path_list, topk_strs, topk_probs)):
                         alpha = alphas[idx, :, :].transpose()
                         img = Image.open(img_name)
                         draw = ImageDraw.Draw(img)
                         width, height = img.size
-                        pred_EOS = pred.find('[s]')
-                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
-                        pred_max_prob = pred_max_prob[:pred_EOS]
+                        pred_EOS = pred[0].find('[s]')
+                        pred = [s[:pred_EOS] for s in pred]  # prune after "end of sentence" token ([s])
+                        pred_max_prob = pred_max_prob[:pred_EOS, :]
                         alpha = alpha[:pred_EOS + 1]
                         for alpha_line in alpha:
                             column = np.where(alpha_line>0.3)
@@ -131,17 +135,27 @@ def demo(opt):
                             draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
                         img.show()
 
+                        best_pred = pred[0]
+                        best_prob = pred_max_prob[0]
+
                         # calculate confidence score (= multiply of pred_max_prob)
                         try:
-                            confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                            confidence_score = best_prob.cumprod(dim=0)[-1]
                         except IndexError:
                             confidence_score = 0.0
                             # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
                             # raise ValueError()
+                        print(f'{img_name:25s}\t{best_pred:25s}\t{confidence_score:0.4f}')
+                        log.write(f'{img_name:25s}\t{best_pred:25s}\t{confidence_score:0.4f}\n')
+                        for i in range(k):
+                            print(f'Candidatae {i:1d}: ', end='')
+                            for j in range(pred_EOS):
+                                print(f'{pred[i][j]}, prob: {pred_max_prob[j][i]:0.4f}\t', end='')
+                            print()
 
-                        print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
-                        log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
                 else:
+                    preds_prob = F.softmax(preds, dim=2)
+                    preds_max_prob, _ = preds_prob.max(dim=2)
                     for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
                         pred_EOS = pred.find('[s]')
                         pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
@@ -188,7 +202,7 @@ if __name__ == '__main__':
                         help='page orientation, or single char')
 
     """ Output Setting """
-    parser.add_argument('--topk', type=int, default=5, help='Top-k to output when single char ocr')
+    parser.add_argument('--topk', type=int, default=1, help='Top-k to output when single char ocr')
 
     opt = parser.parse_args()
 
