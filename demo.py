@@ -136,7 +136,7 @@ def demo(opt):
                         # img.show()
 
                         best_pred = pred[0]
-                        best_prob = pred_max_prob[0]
+                        best_prob = pred_max_prob[:, 0]
 
                         # calculate confidence score (= multiply of pred_max_prob)
                         try:
