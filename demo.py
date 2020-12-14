@@ -133,7 +133,7 @@ def demo(opt):
                             column = np.mean(column)
                             line_height = int(column / 26 * height)
                             draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
-                        img.show()
+                        # img.show()
 
                         best_pred = pred[0]
                         best_prob = pred_max_prob[0]

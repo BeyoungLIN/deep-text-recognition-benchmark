@@ -15,7 +15,6 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 from PIL import Image, ImageDraw
 
 from dataset import AlignCollate, RawDataset, LmdbDataset, LmdbDataset_2, RawDataset_2
-from modules.ResNet_Shallow import ResNet
 from modules.feature_extraction import BasicBlock
 from modules.sequence_modeling import BidirectionalLSTM
 
@@ -23,12 +22,229 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 feature_length = 416
 
 
-class ResNet_segment_text(nn.Module):
+class ResNet_upconv(nn.Module):
+
+    def __init__(self, input_channel, output_channel, block, layers):
+        super(ResNet_upconv, self).__init__()
+
+        self.output_channel_block = [int(output_channel / 4), int(output_channel / 2), output_channel, output_channel]
+
+        self.inplanes = int(output_channel / 8)
+        self.conv0_1 = nn.Conv2d(input_channel, int(output_channel / 16),
+                                 kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn0_1 = nn.BatchNorm2d(int(output_channel / 16))
+        self.conv0_2 = nn.Conv2d(int(output_channel / 16), self.inplanes,
+                                 kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn0_2 = nn.BatchNorm2d(self.inplanes)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.layer1 = self._make_layer(block, self.output_channel_block[0], layers[0])
+        self.conv1 = nn.Conv2d(self.output_channel_block[0], self.output_channel_block[0],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.output_channel_block[0])
+
+        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.layer2 = self._make_layer(block, self.output_channel_block[1], layers[1], stride=1)
+        self.conv2 = nn.Conv2d(self.output_channel_block[1], self.output_channel_block[1],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(self.output_channel_block[1])
+
+        self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0))
+
+        self.layer3 = self._make_layer(block, self.output_channel_block[2], layers[2], stride=1)
+        self.conv3 = nn.Conv2d(self.output_channel_block[2], self.output_channel_block[2],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(self.output_channel_block[2])
+
+        self.layer4 = self._make_layer(block, self.output_channel_block[3], layers[3], stride=1)
+
+        self.conv4_1 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
+                                 kernel_size=2, stride=(1, 2), padding=(1, 0), bias=False)
+
+        self.bn4_1 = nn.BatchNorm2d(self.output_channel_block[3])
+        self.conv4_2 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
+                                 kernel_size=2, stride=1, padding=0, bias=False)
+        self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
+
+        self.up_conv1 = nn.ConvTranspose2d(self.output_channel_block[3], self.output_channel_block[2],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv2 = nn.ConvTranspose2d(self.output_channel_block[2], self.output_channel_block[1],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv3 = nn.ConvTranspose2d(self.output_channel_block[1], self.output_channel_block[0],
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+        self.up_conv4 = nn.ConvTranspose2d(self.output_channel_block[0], 1,
+                                           kernel_size=(2, 1), stride=(2, 1), bias=False)
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    # input - (batch_size, channel, H, W)
+    def forward(self, x):
+        x = self.conv0_1(x)  # (batch_size, 32, H, W)
+        x = self.bn0_1(x)
+        x = self.relu(x)
+        x = self.conv0_2(x)  # (batch_size, 64, H, W)
+        x = self.bn0_2(x)
+        x = self.relu(x)
+
+        x = self.maxpool1(x)  # (batch_size, 64, H/2, W/2)
+        x = self.layer1(x)  # (batch_size, 128, H/2, W/2)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x = self.maxpool2(x)  # (batch_size, 128, H/4, W/4)
+        x = self.layer2(x)  # (batch_size, 256, H/4, W/4)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+
+        x = self.maxpool3(x)  # (batch_size, 256, H/8, W/4+1) or (batch_size, 256, H/4+1, W/8)
+        x = self.layer3(x)  # (batch_size, 512, H/8, W/4+1) or (batch_size, 512, H/4+1, W/8)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+
+        x = self.layer4(x)
+        x = self.conv4_1(x)  # (batch_size, 512, H/16, W/4+2) or (batch_size, 512, H/4+2, W/16)
+        x = self.bn4_1(x)
+        x = self.relu(x)
+        x = self.conv4_2(x)  # (batch_size, 512, H/16-1, W/4+1) or (batch_size, 512, H/4+1, W/16-1)
+        x = self.bn4_2(x)
+        x = self.relu(x)
+
+        x = self.up_conv1(x)
+        x = self.relu(x)
+        x = self.up_conv2(x)
+        x = self.relu(x)
+        x = self.up_conv3(x)
+        x = self.relu(x)
+        x = self.up_conv4(x)
+
+        return x
+
+
+class ResNet_nomaxpool(nn.Module):
+
+    def __init__(self, input_channel, output_channel, block, layers):
+        super(ResNet_nomaxpool, self).__init__()
+
+        self.output_channel_block = [int(output_channel / 4), int(output_channel / 2), output_channel, output_channel]
+
+        self.inplanes = int(output_channel / 8)
+        self.conv0_1 = nn.Conv2d(input_channel, int(output_channel / 16),
+                                 kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn0_1 = nn.BatchNorm2d(int(output_channel / 16))
+        self.conv0_2 = nn.Conv2d(int(output_channel / 16), self.inplanes,
+                                 kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn0_2 = nn.BatchNorm2d(self.inplanes)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.layer1 = self._make_layer(block, self.output_channel_block[0], layers[0])
+        self.conv1 = nn.Conv2d(self.output_channel_block[0], self.output_channel_block[0],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.output_channel_block[0])
+
+        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.layer2 = self._make_layer(block, self.output_channel_block[1], layers[1], stride=1)
+        self.conv2 = nn.Conv2d(self.output_channel_block[1], self.output_channel_block[1],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(self.output_channel_block[1])
+
+        self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0))
+
+        self.layer3 = self._make_layer(block, self.output_channel_block[2], layers[2], stride=1)
+        self.conv3 = nn.Conv2d(self.output_channel_block[2], self.output_channel_block[2],
+                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(self.output_channel_block[2])
+
+        self.layer4 = self._make_layer(block, self.output_channel_block[3], layers[3], stride=1)
+
+        self.conv4_1 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
+                                 kernel_size=2, stride=(1, 2), padding=(1, 0), bias=False)
+
+        self.bn4_1 = nn.BatchNorm2d(self.output_channel_block[3])
+        self.conv4_2 = nn.Conv2d(self.output_channel_block[3], self.output_channel_block[3],
+                                 kernel_size=2, stride=1, padding=0, bias=False)
+        self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    # input - (batch_size, channel, H, W)
+    def forward(self, x):
+        x = self.conv0_1(x)  # (batch_size, 32, H, W)
+        x = self.bn0_1(x)
+        x = self.relu(x)
+        x = self.conv0_2(x)  # (batch_size, 64, H, W)
+        x = self.bn0_2(x)
+        x = self.relu(x)
+
+        # x = self.maxpool1(x)  # (batch_size, 64, H/2, W/2)
+        x = self.layer1(x)  # (batch_size, 128, H/2, W/2)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        # x = self.maxpool2(x)  # (batch_size, 128, H/4, W/4)
+        x = self.layer2(x)  # (batch_size, 256, H/4, W/4)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+
+        # x = self.maxpool3(x)  # (batch_size, 256, H/8, W/4+1) or (batch_size, 256, H/4+1, W/8)
+        x = self.layer3(x)  # (batch_size, 512, H/8, W/4+1) or (batch_size, 512, H/4+1, W/8)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+
+        x = self.layer4(x)
+        x = self.conv4_1(x)  # (batch_size, 512, H/16, W/4+2) or (batch_size, 512, H/4+2, W/16)
+        x = self.bn4_1(x)
+        x = self.relu(x)
+        x = self.conv4_2(x)  # (batch_size, 512, H/16-1, W/4+1) or (batch_size, 512, H/4+1, W/16-1)
+        x = self.bn4_2(x)
+        x = self.relu(x)
+
+        return x
+
+
+class ResNet_segment_text_upconv(nn.Module):
     def __init__(self, ckpt_path, freeze_CNN=True):
-        super(ResNet_segment_text, self).__init__()
+        super(ResNet_segment_text_upconv, self).__init__()
         self.output_dim = 512
         self.hidden_dim = 128
-        self.CNN = ResNet(1, self.output_dim, BasicBlock, [1, 2, 5, 3])
+        self.CNN = ResNet_upconv(1, self.output_dim, BasicBlock, [1, 2, 5, 3])
         self.load_CNN_weight(ckpt_path)
         if freeze_CNN:
             self.CNN.requires_grad_(False)
@@ -74,6 +290,104 @@ class ResNet_segment_text(nn.Module):
             return loss
 
 
+class ResNet_segment_text_bilstm(nn.Module):
+    def __init__(self, ckpt_path, freeze_CNN=True):
+        super(ResNet_segment_text_bilstm, self).__init__()
+        self.output_dim = 512
+        self.hidden_dim = 128
+        self.CNN = ResNet_nomaxpool(1, self.output_dim, BasicBlock, [1, 2, 5, 3])
+        self.load_CNN_weight(ckpt_path)
+        if freeze_CNN:
+            self.CNN.requires_grad_(False)
+        # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
+        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
+
+        self.SequenceModeling = nn.Sequential(
+                BidirectionalLSTM(self.output_dim, self.hidden_dim, self.hidden_dim),
+                BidirectionalLSTM(self.hidden_dim, self.hidden_dim, self.hidden_dim))
+
+        self.Prediction = nn.Linear(self.hidden_dim, 1)
+        # self.Prediction = nn.Linear(self.output_dim, 1)
+        # self.Loss = nn.SmoothL1Loss()
+        self.Loss = nn.BCELoss()
+
+    def load_CNN_weight(self, ckpt_path):
+        restore_ckpt = collections.OrderedDict()
+        ckpt = torch.load(ckpt_path)
+        for k, v in ckpt.items():
+            if k.startswith('module.FeatureExtraction.ConvNet'):
+                k = k.split('.')
+                new_k = '.'.join(k[3:])
+                restore_ckpt[new_k] = v
+        self.CNN.load_state_dict(restore_ckpt, strict=False)
+
+    def forward(self, img, logits=None, weights=None):
+        visual_feature = self.CNN(img)
+
+        visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
+        visual_feature = visual_feature.squeeze(-1)
+
+        contextual_feature = self.SequenceModeling(visual_feature)
+        # contextual_feature = visual_feature
+
+        predicition = self.Prediction(contextual_feature.contiguous())
+        # predicition = contextual_feature
+        predicition = predicition.squeeze(-1)
+        predicition = torch.sigmoid(predicition)
+        if logits is None:
+            return predicition.detach()
+        else:
+            loss = self.loss(predicition, logits)
+            return loss
+
+
+class ResNet_segment_text_simple(nn.Module):
+    def __init__(self, ckpt_path, freeze_CNN=True):
+        super(ResNet_segment_text_simple, self).__init__()
+        self.output_dim = 512
+        self.hidden_dim = 128
+        self.CNN = ResNet_nomaxpool(1, self.output_dim, BasicBlock, [1, 2, 5, 3])
+        self.load_CNN_weight(ckpt_path)
+        if freeze_CNN:
+            self.CNN.requires_grad_(False)
+        # self.Channel = nn.Conv2d(64, 1, kernel_size=1, bias=False)
+        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))
+
+        # self.Prediction = nn.Linear(self.hidden_dim, 1)
+        self.Prediction = nn.Linear(self.output_dim, 1)
+        # self.Loss = nn.SmoothL1Loss()
+        self.Loss = nn.BCELoss()
+
+    def load_CNN_weight(self, ckpt_path):
+        restore_ckpt = collections.OrderedDict()
+        ckpt = torch.load(ckpt_path)
+        for k, v in ckpt.items():
+            if k.startswith('module.FeatureExtraction.ConvNet'):
+                k = k.split('.')
+                new_k = '.'.join(k[3:])
+                restore_ckpt[new_k] = v
+        self.CNN.load_state_dict(restore_ckpt, strict=False)
+
+    def forward(self, img, logits=None, weights=None):
+        visual_feature = self.CNN(img)
+
+        visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))
+        visual_feature = visual_feature.squeeze(-1)
+
+        # contextual_feature = self.SequenceModeling(visual_feature)
+        contextual_feature = visual_feature
+
+        predicition = self.Prediction(contextual_feature.contiguous())
+        # predicition = contextual_feature
+        predicition = predicition.squeeze(-1)
+        predicition = torch.sigmoid(predicition)
+        if logits is None:
+            return predicition.detach()
+        else:
+            loss = self.loss(predicition, logits)
+            return loss
+
+
 def get_logits_and_weights(batch_size, labels, alpha, beta):
     logits = torch.ones((batch_size, feature_length))
     weights = torch.ones((batch_size, feature_length)) * alpha
@@ -85,8 +399,14 @@ def get_logits_and_weights(batch_size, labels, alpha, beta):
     return logits, weights
 
 
-def nn_method_vertical_train(freeze_CNN):
-    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth', freeze_CNN=freeze_CNN)
+def nn_method_vertical_train(method='upconv', freeze_CNN=False):
+    switch = {
+        'upconv': ResNet_segment_text_upconv,
+        'bilstm': ResNet_segment_text_bilstm,
+        'simple': ResNet_segment_text_simple,
+    }
+
+    model = switch[method]('saved_models/Line_baseline_xl_2/best_accuracy.pth', freeze_CNN=freeze_CNN)
     model.to(device)
     # prepare data. two demo images from https://github.com/bgshih/crnn#run-demo
     AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
@@ -192,33 +512,57 @@ def nn_method_vertical_train(freeze_CNN):
             iteration += 1
 
 
-def nn_method_vertical(img_path, ckpt_path, score_threshold=0.5, NMS_threshold=3):
-    model = ResNet_segment_text('saved_models/Line_baseline_xl_2/best_accuracy.pth')
+def nn_method_vertical(method, img_path, ckpt_path, score_threshold=1.0, NMS_threshold=20):
+    switch = {
+        'upconv': ResNet_segment_text_upconv,
+        'bilstm': ResNet_segment_text_bilstm,
+        'simple': ResNet_segment_text_simple,
+    }
+    model = switch[method]('saved_models/Line_baseline_xl_2/best_accuracy.pth')
     model.load_state_dict(torch.load(ckpt_path))
     model.to(device)
     val_dataset = RawDataset_2(root=img_path)
     AlignCollater = AlignCollate(imgH=100, imgW=32, keep_ratio_with_pad=False)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=0,
                                                  collate_fn=AlignCollater, pin_memory=True)
-    for val_image, val_image_path in val_dataloader:
+    data_lens = [4, 8, 17, 7, 7, 18, 16]
+    for (val_image, val_image_path), data_len in zip(val_dataloader, data_lens):
         # batch_size = val_image.size(0)
         val_image = val_image.to(device)
         pred = model(val_image)
         pred = pred.detach().cpu().numpy().reshape(-1).tolist()
         candidate = [(score, idx) for idx, score in enumerate(pred)]
-        candidate.sort(reverse=False)
+        if method == 'upconv':
+            candidate.sort(reverse=False)
+        else:
+            candidate.sort(reverse=True)
         choosen_candidate = []
-        for score, idx in candidate:
-            if score > score_threshold:
-                break
-            NMS_flag = False
-            for choosen_idx in choosen_candidate:
-                if abs(choosen_idx - score) <= NMS_threshold:
-                    NMS_flag = True
+        if method == 'upconv':
+            for score, idx in candidate:
+                if score > score_threshold:
                     break
-            if NMS_flag:
-                continue
-            choosen_candidate.append(idx)
+                NMS_flag = False
+                for choosen_idx in choosen_candidate:
+                    if abs(choosen_idx - idx) <= NMS_threshold:
+                        NMS_flag = True
+                        break
+                if NMS_flag:
+                    continue
+                choosen_candidate.append(idx)
+                if len(choosen_candidate) == data_len:
+                    break
+        else:
+            for score, idx in candidate:
+                if score < score_threshold:
+                    break
+                NMS_flag = False
+                for choosen_idx in choosen_candidate:
+                    if abs(choosen_idx - idx) <= NMS_threshold:
+                        NMS_flag = True
+                        break
+                if NMS_flag:
+                    continue
+                choosen_candidate.append(idx)
         img = Image.open(val_image_path[0])
         draw = ImageDraw.Draw(img)
         width, height = img.size
@@ -227,7 +571,7 @@ def nn_method_vertical(img_path, ckpt_path, score_threshold=0.5, NMS_threshold=3
             draw_height = idx / feature_length * height
             split_height.append(draw_height)
             draw.line(((0, draw_height), (width - 1, draw_height)), fill=(255, 0, 0), width=2)
-        img.show()
+        img.save(os.path.join('result', os.path.basename(val_image_path[0])))
 
 
 def cv_method_horizontal(img, threshold=2):
@@ -312,5 +656,17 @@ def cv_method_vertical(img, threshold=10):
 if __name__ == '__main__':
     # img = cv2.imread('test_line_image/true_line/20201024234424.png', 0)
     # cv_method_vertical(img)
-    nn_method_vertical_train(freeze_CNN=False)
-    # nn_method_vertical('test_line_image/true_line', 'saved_models/split/iter_120000.pth')
+    # nn_method_vertical_train(freeze_CNN=False)
+    '''
+    feature_length = 100
+    nn_method_vertical('bilstm', 'test_line_image/true_line', 'saved_models/split/iter_200000.pth',
+                       score_threshold=0.002)
+    '''
+    '''
+    feature_length = 100
+    nn_method_vertical('simple', 'test_line_image/true_line', 'saved_models/split_None/iter_200000.pth',
+                       score_threshold=0.002)
+    '''
+    feature_length = 416
+    nn_method_vertical('upconv', 'test_line_image/true_line', 'saved_models/split_Upconv/iter_220000.pth',
+                       score_threshold=0.999)
