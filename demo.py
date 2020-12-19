@@ -66,7 +66,6 @@ def demo(opt):
                 _, preds_index = preds.max(2)
                 # preds_index = preds_index.view(-1)
                 preds_str = converter.decode(preds_index, preds_size)
-
             else:
                 preds = model(image, text_for_pred, is_train=False)
                 # alphas = alphas.detach().cpu().numpy()
