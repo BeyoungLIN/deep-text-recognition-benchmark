@@ -6,7 +6,8 @@ import argparse
 import string
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
+import editdistance
 
 import torch
 from torch import nn
@@ -106,7 +107,26 @@ def get_box(db_path):
 def get_gt(html_path, type):
     gt = []
     if type == 'dingxiu':
-        pass
+        with open(html_path, 'r', encoding='utf-8') as fp:
+            html_file = fp.read()
+        soup = BeautifulSoup(html_file, 'lxml')
+        lines = soup.find_all('div', {'class': 'linespan'})
+        for line in lines:
+            contents = line.contents
+            cur_line = ''
+            br_cnt = 0
+            for content in contents:
+                if isinstance(content, NavigableString):
+                    cur_line += content
+                    br_cnt = 0
+                else:
+                    br_cnt += 1
+                    if br_cnt > 1 and len(cur_line) > 0:
+                        gt.append(cur_line)
+                        cur_line = ''
+            if len(cur_line) > 0:
+                gt.append(cur_line)
+                cur_line = ''
     elif type == 'diaolong':
         pass
     else:
@@ -148,18 +168,62 @@ def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
     return total_preds_str
 
 
+def check(gt, pred):
+    if abs(len(gt) - len(pred)) >= 2:
+        return False
+    dis = editdistance.distance(gt, pred)
+    if dis < max(len(gt), len(pred)) * 0.5:
+        return True
+
+
+def get_match_idx(preds, gts):
+    matching_idxs = []
+    preds_len = len(preds)
+    gts_len = len(gts)
+    current_pred_idx = 0
+    for current_gt_idx in range(gts_len):
+        flag = 0
+        current_gt = gts[current_gt_idx]
+        while True:
+            current_pred = preds[current_pred_idx]
+            if check(current_gt, current_pred):
+                matching_idxs.append((current_pred_idx, current_gt_idx))
+                break
+            else:
+                current_pred_idx += 1
+                flag += 1
+            # max forward match distance = 7
+            # if match fail, go back 3
+            if flag == 7 or current_pred_idx == preds_len:
+                current_pred_idx -= 10
+                current_pred_idx = max(0, current_pred_idx)
+                break
+    return matching_idxs
+
+
 def get_match_img(args, model, AlignCollate_demo, converter,
                   img_path, db_path, html_path, current_cnt):
+    match_cnt = 0
     boxes = get_box(db_path)
+    gts = get_gt(html_path, args.type)
     PIL_image_list = list()
-    img = Image.open(img_path)
+    img = Image.open(img_path).convert('L')
     for box in boxes:
         crop_img = img.crop(box)
         # crop_img.show()
         PIL_image_list.append(crop_img)
     pred = demo(args, PIL_image_list, model, AlignCollate_demo, converter)
-    gt = get_gt(html_path, args.type)
-
+    matching_idx = get_match_idx(pred, gts)
+    for p_idx, g_idx in matching_idx:
+        img = PIL_image_list[p_idx]
+        img_gt = gts[g_idx]
+        img_save_path = os.path.join(args.output_path, 'imgs', str(current_cnt) + '.jpg')
+        img.save(img_save_path)
+        gt_save_path = os.path.join(args.output_path, 'gts', str(current_cnt) + '.txt')
+        with open(gt_save_path, 'w', encoding='utf-8') as fp:
+            fp.write(img_gt + '\n')
+        current_cnt += 1
+        match_cnt += 1
     return match_cnt, current_cnt
 
 
