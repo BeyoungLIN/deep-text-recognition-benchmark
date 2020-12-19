@@ -147,9 +147,8 @@ def train(opt):
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
             preds = preds.log_softmax(2).permute(1, 0, 2)
             cost = criterion(preds, text, preds_size, length)
-
         else:
-            preds, alphas = model(image, text[:, :-1])  # align with Attention.forward
+            preds = model(image, text[:, :-1])  # align with Attention.forward
             target = text[:, 1:]  # without [GO] Symbol
             cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
