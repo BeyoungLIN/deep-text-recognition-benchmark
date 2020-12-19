@@ -69,7 +69,7 @@ def demo(opt):
 
             else:
                 preds, alphas = model(image, text_for_pred, is_train=False)
-                alphas = alphas.detach().cpu().numpy()
+                # alphas = alphas.detach().cpu().numpy()
                 if opt.batch_max_length == 1:
                     # select top_k probabilty (greedy decoding) then decode index to character
                     k = opt.topk
@@ -120,19 +120,19 @@ def demo(opt):
                 # preds_max_prob, _ = preds_prob.max(dim=2)
                 if 'Attn' in opt.Prediction:
                     for idx, (img_name, pred, pred_max_prob) in enumerate(zip(image_path_list, topk_strs, topk_probs)):
-                        alpha = alphas[idx, :, :].transpose()
+                        # alpha = alphas[idx, :, :].transpose()
                         img = Image.open(img_name)
-                        draw = ImageDraw.Draw(img)
-                        width, height = img.size
+                        # draw = ImageDraw.Draw(img)
+                        # width, height = img.size
                         pred_EOS = pred[0].find('[s]')
                         pred = [s[:pred_EOS] for s in pred]  # prune after "end of sentence" token ([s])
                         pred_max_prob = pred_max_prob[:pred_EOS, :]
-                        alpha = alpha[:pred_EOS + 1]
-                        for alpha_line in alpha:
-                            column = np.where(alpha_line>0.3)
-                            column = np.mean(column)
-                            line_height = int(column / 26 * height)
-                            draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
+                        # alpha = alpha[:pred_EOS + 1]
+                        # for alpha_line in alpha:
+                        #     column = np.where(alpha_line>0.3)
+                        #     column = np.mean(column)
+                        #     line_height = int(column / 26 * height)
+                        #     draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
                         # img.show()
 
                         best_pred = pred[0]
