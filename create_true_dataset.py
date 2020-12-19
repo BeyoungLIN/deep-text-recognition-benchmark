@@ -32,13 +32,6 @@ def get_already_done(done_path):
     return done
 
 
-def write_already_done(current_done, done_path):
-    with open(done_path, 'a', encoding='utf-8') as fp:
-        for line in current_done:
-            fp.write(line + '\n')
-    return
-
-
 def get_count(count_path):
     if not os.path.isfile(count_path):
         return 0
@@ -291,16 +284,16 @@ if __name__ == '__main__':
 
     converter, model, AlignCollate_demo = init_model(args)
 
-    current_done = list()
     for file_path in todo_list:
         db_result_path = os.path.splitext(file_path)[0] + '.txt'
         if not os.path.isfile(db_result_path):
             continue
         html_gt_path = os.path.splitext(file_path)[0] + '.html'
+        print('started from No. {} '.format(cnt), end='')
         match_cnt, cnt = get_match_img(args, model, AlignCollate_demo, converter,
                                        file_path, db_result_path, html_gt_path, cnt)
         print('{} get {} match imgs'.format(file_path, match_cnt))
-        current_done.append(file_path)
-
-    write_already_done(current_done, args.done_path)
-    write_count(cnt, args.count_path)
+        with open(args.done_path, 'a', encoding='utf-8') as fp:
+            fp.write(file_path + '\n')
+        with open(args.count_path, 'w', encoding='utf-8') as fp:
+            fp.write(str(cnt) + '\n')
