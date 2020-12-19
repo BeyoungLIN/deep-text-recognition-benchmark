@@ -39,12 +39,6 @@ def get_count(count_path):
         return int(open(count_path, 'r', encoding='utf-8').readline().rstrip())
 
 
-def write_count(count, count_path):
-    with open(count_path, 'w', encoding='utf-8') as fp:
-        fp.write(str(count) + '\n')
-    return
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--done_path', type=str, default='result/done.txt')
