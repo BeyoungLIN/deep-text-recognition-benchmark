@@ -138,5 +138,5 @@ if __name__ == '__main__':
     select_range = args.select_range
     select_range = tuple(map(int, select_range.split('-')))
     assert len(select_range) == 2
-    createImageAndGt_Range_Dataset(args.input_path, args.gt_path, args.output_path, args.check_valid,
-                                   args.map_size, select_range, args.train_ratio)
+    createImageAndGt_Range_Dataset(args.input_path, args.gt_path, args.train_output_path, args.val_output_path,
+                                   args.check_valid, args.map_size, select_range, args.train_ratio)
