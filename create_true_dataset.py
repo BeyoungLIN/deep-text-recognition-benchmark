@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup, NavigableString
 import editdistance
+import random
 
 import torch
 from torch import nn
@@ -46,6 +47,7 @@ def parse_args():
     parser.add_argument('--type', type=str, required=True, choices=['dingxiu', 'diaolong'])
     parser.add_argument('--input_path', type=str, required=True)
     parser.add_argument('--output_path', type=str, required=True)
+    parser.add_argument('--shuffle', action='store_true')
 
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
@@ -68,6 +70,7 @@ def parse_args():
     parser.add_argument('--output_channel', type=int, default=512,
                         help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
+
     parser.add_argument('--page_orient', type=str, choices=['horizontal', 'vertical', 'single'], default='horizontal',
                         help='page orientation, or single char')
 
@@ -257,6 +260,9 @@ if __name__ == '__main__':
                 continue
             todo_list.append(file_path)
     print('{} files to do.'.format(len(todo_list)), flush=True)
+    if args.shuffle:
+        print('shuffle todo files.')
+        random.shuffle(todo_list)
     os.makedirs(os.path.join(args.output_path, 'imgs'), exist_ok=True)
     os.makedirs(os.path.join(args.output_path, 'gts'), exist_ok=True)
 
