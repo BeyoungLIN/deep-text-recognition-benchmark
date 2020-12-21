@@ -86,7 +86,7 @@ def createImageAndGt_Range_Dataset(inputPath, gtPath, train_outputPath, val_outp
                 with open(train_outputPath + '/error_image_log.txt', 'a') as log:
                     log.write('%s-th image data occured error\n' % str(i))
                 continue
-        if val_outputPath is not None and random.random() < train_ratio:
+        if val_outputPath is None or random.random() < train_ratio:
             imageKey = 'image-%09d'.encode() % train_cnt
             labelKey = 'label-%09d'.encode() % train_cnt
             train_cache[imageKey] = imageBin
