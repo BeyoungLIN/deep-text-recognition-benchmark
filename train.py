@@ -116,6 +116,8 @@ def train(opt):
         opt_log = '------------ Options -------------\n'
         args = vars(opt)
         for k, v in args.items():
+            if k == 'character':
+                continue
             opt_log += f'{str(k)}: {str(v)}\n'
         opt_log += '---------------------------------------\n'
         print(opt_log)
