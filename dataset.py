@@ -433,6 +433,27 @@ class NormalizePAD(object):
         return Pad_img
 
 
+class NormalizePAD_vertical(object):
+
+    # max_size: c, h, w
+    def __init__(self, max_size, PAD_type='right'):
+        self.toTensor = transforms.ToTensor()
+        self.max_size = max_size
+        self.max_height_half = math.floor(max_size[1] / 2)
+        self.PAD_type = PAD_type
+
+    def __call__(self, img):
+        img = self.toTensor(img)
+        img.sub_(0.5).div_(0.5)
+        c, h, w = img.size()
+        Pad_img = torch.FloatTensor(*self.max_size).fill_(0)
+        Pad_img[:, :h, :] = img  # bottom pad
+        if self.max_size[1] != h:  # add border Pad
+            Pad_img[:, h:, :] = img[:, h - 1, :].unsqueeze(1).expand(c, self.max_size[1] - h, w)
+
+        return Pad_img
+
+
 class AlignCollate(object):
 
     def __init__(self, imgH=32, imgW=100, keep_ratio_with_pad=False, augment=False):
@@ -450,20 +471,19 @@ class AlignCollate(object):
             # images[0].show()
 
         if self.keep_ratio_with_pad:  # same concept with 'Rosetta' paper
-            resized_max_w = self.imgW
             input_channel = 3 if images[0].mode == 'RGB' else 1
-            transform = NormalizePAD((input_channel, self.imgH, resized_max_w))
+            transform = NormalizePAD_vertical((input_channel, self.imgH, self.imgW))
 
             resized_images = []
             for image in images:
                 w, h = image.size
-                ratio = w / float(h)
-                if math.ceil(self.imgH * ratio) > self.imgW:
-                    resized_w = self.imgW
+                ratio = h / float(w)
+                if math.ceil(self.imgW * ratio) > self.imgH:
+                    resized_h = self.imgH
                 else:
-                    resized_w = math.ceil(self.imgH * ratio)
+                    resized_h = math.ceil(self.imgW * ratio)
 
-                resized_image = image.resize((resized_w, self.imgH), Image.BICUBIC)
+                resized_image = image.resize((self.imgW, resized_h), Image.BICUBIC)
                 resized_images.append(transform(resized_image))
                 # resized_image.save('./image_test/%d_test.jpg' % w)
 
