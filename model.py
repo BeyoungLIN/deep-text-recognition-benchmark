@@ -94,7 +94,14 @@ class Model(nn.Module):
         if self.stages['Pred'] == 'CTC':
             prediction = self.Prediction(contextual_feature.contiguous())
             return prediction
+        elif self.stages['Pred'] == 'Attn':
+            if is_train:
+                prediction = self.Prediction(contextual_feature.contiguous(), text, is_train,
+                                             batch_max_length=self.opt.batch_max_length)
+                return prediction
+            else:
+                prediction, alphas = self.Prediction(contextual_feature.contiguous(), text, is_train,
+                                                     batch_max_length=self.opt.batch_max_length)
+                return prediction, alphas
         else:
-            prediction = self.Prediction(contextual_feature.contiguous(),
-                                         text, is_train, batch_max_length=self.opt.batch_max_length)
-        return prediction
+            raise ValueError

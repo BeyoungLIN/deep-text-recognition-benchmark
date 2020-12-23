@@ -16,6 +16,7 @@ from dataset import RawDataset, AlignCollate
 from model import Model
 device = None
 
+
 def demo(opt):
     """ model configuration """
     if 'CTC' in opt.Prediction:
@@ -67,8 +68,8 @@ def demo(opt):
                 # preds_index = preds_index.view(-1)
                 preds_str = converter.decode(preds_index, preds_size)
             else:
-                preds = model(image, text_for_pred, is_train=False)
-                # alphas = alphas.detach().cpu().numpy()
+                preds, alphas = model(image, text_for_pred, is_train=False)
+                alphas = alphas.detach().cpu().numpy()
                 if opt.batch_max_length == 1:
                     # select top_k probabilty (greedy decoding) then decode index to character
                     k = opt.topk
@@ -119,20 +120,39 @@ def demo(opt):
                 # preds_max_prob, _ = preds_prob.max(dim=2)
                 if 'Attn' in opt.Prediction:
                     for idx, (img_name, pred, pred_max_prob) in enumerate(zip(image_path_list, topk_strs, topk_probs)):
-                        # alpha = alphas[idx, :, :].transpose()
-                        img = Image.open(img_name)
-                        # draw = ImageDraw.Draw(img)
-                        # width, height = img.size
                         pred_EOS = pred[0].find('[s]')
                         pred = [s[:pred_EOS] for s in pred]  # prune after "end of sentence" token ([s])
                         pred_max_prob = pred_max_prob[:pred_EOS, :]
-                        # alpha = alpha[:pred_EOS + 1]
-                        # for alpha_line in alpha:
-                        #     column = np.where(alpha_line>0.3)
-                        #     column = np.mean(column)
-                        #     line_height = int(column / 26 * height)
-                        #     draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
-                        # img.show()
+                        if opt.output_split:
+                            alpha = alphas[idx, :, :].transpose()
+                            img = Image.open(img_name).convert('RGB')
+                            draw = ImageDraw.Draw(img)
+                            width, height = img.size
+                            alpha = alpha[:pred_EOS]
+                            last_alpha_line = alpha[-1]
+                            # 消除padding的影响
+                            column_range = np.arange(0, last_alpha_line.shape[0])
+                            ratio = height / width
+                            if ratio > opt.imgH / opt.imgW:
+                                want_height = opt.imgW * ratio
+                                compress_ratio = want_height / opt.imgH
+                                column_range = column_range - last_alpha_line.shape[0] / 2
+                                column_range = column_range / 320 * (320 + compress_ratio * 5)
+                                column_range = column_range + last_alpha_line.shape[0] / 2
+                            # column_range = column_range - column_range[0]
+                            # last_column = np.argmax(last_alpha_line)
+                            last_column = np.dot(last_alpha_line, column_range)
+                            split_output = os.path.join('output',
+                                                        os.path.splitext(os.path.basename(img_name))[0] + '.txt')
+                            with open(split_output, 'w', encoding='utf-8') as fp:
+                                for alpha_line in alpha:
+                                    column = np.dot(alpha_line, column_range)
+                                    line_height = int(column / last_column * height)
+                                    line = [0, line_height, width-1, line_height]
+                                    line = list(map(str, line))
+                                    fp.write(','.join(line) + '\n')
+                                    # draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
+                                # img.show()
 
                         best_pred = pred[0]
                         best_prob = pred_max_prob[:, 0]
@@ -199,6 +219,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     parser.add_argument('--page_orient', type=str, choices=['horizontal', 'vertical', 'single'], default='horizontal',
                         help='page orientation, or single char')
+    parser.add_argument('--output_split', action='store_true')
 
     """ Output Setting """
     parser.add_argument('--topk', type=int, default=1, help='Top-k to output when single char ocr')
@@ -246,5 +267,8 @@ if __name__ == '__main__':
     cudnn.benchmark = True
     cudnn.deterministic = True
     opt.num_gpu = torch.cuda.device_count()
+
+    if opt.output_split:
+        os.makedirs('output', exist_ok=True)
 
     demo(opt)

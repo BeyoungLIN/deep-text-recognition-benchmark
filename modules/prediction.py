@@ -47,22 +47,24 @@ class Attention(nn.Module):
                 # one-hot vectors for a i-th char. in a batch
                 char_onehots = self._char_to_onehot(text[:, i], onehot_dim=self.num_classes)
                 # hidden : decoder's hidden s_{t-1}, batch_H : encoder's hidden H, char_onehots : one-hot(y_{t-1})
-                hidden, alpha = self.attention_cell(hidden, batch_H, char_onehots)
+                hidden, _ = self.attention_cell(hidden, batch_H, char_onehots)
                 output_hiddens[:, i, :] = hidden[0]  # LSTM hidden index (0: hidden, 1: Cell)
             probs = self.generator(output_hiddens)
+            return probs
         else:
+            alphas = []
             targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
             probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
             for i in range(num_steps):
                 char_onehots = self._char_to_onehot(targets, onehot_dim=self.num_classes)
                 hidden, alpha = self.attention_cell(hidden, batch_H, char_onehots)
+                alphas.append(alpha)
                 probs_step = self.generator(hidden[0])
                 probs[:, i, :] = probs_step
                 _, next_input = probs_step.max(1)
                 targets = next_input
-            # for i in range(batch_size):
-            #     display_attention(alphas[i])
-        return probs  # batch_size x num_steps x num_classes
+            alphas = torch.cat(alphas, dim=2)
+            return probs, alphas  # batch_size x num_steps x num_classes
 
 
 def display_attention(attention):
