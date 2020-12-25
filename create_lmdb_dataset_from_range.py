@@ -6,6 +6,7 @@ import argparse
 import os
 import lmdb
 import cv2
+from tqdm import tqdm
 
 import numpy as np
 
@@ -51,13 +52,14 @@ def createImageAndGt_Range_Dataset(inputPath, gtPath, train_outputPath, val_outp
             with val_env.begin(write=False) as txn:
                 nSamples = int(txn.get('num-samples'.encode(), default=0))
                 val_cnt = nSamples + 1
+            print(f'val_cnt start from {val_cnt}')
         except lmdb.NotFoundError:
             val_cnt = 1
 
     filenames = []
     labels = []
 
-    for i in range(*select_range):
+    for i in tqdm(range(*select_range)):
         img_path = os.path.join(inputPath, str(i) + '.jpg')
         gt_path = os.path.join(gtPath, str(i) + '.txt')
         if os.path.isfile(img_path) and os.path.isfile(gt_path):
