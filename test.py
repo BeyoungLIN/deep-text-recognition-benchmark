@@ -14,6 +14,7 @@ from nltk.metrics.distance import edit_distance
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate
 from model import Model
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -66,7 +67,7 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
     for name, accuracy in zip(eval_data_list, list_accuracy):
         evaluation_log += f'{name}: {accuracy}\t'
     evaluation_log += f'total_accuracy: {total_accuracy:0.3f}\t'
-    evaluation_log += f'averaged_infer_time: {averaged_forward_time:0.3f}\t# parameters: {params_num/1e6:0.3f}'
+    evaluation_log += f'averaged_infer_time: {averaged_forward_time:0.3f}\t# parameters: {params_num / 1e6:0.3f}'
     print(evaluation_log)
     log.write(evaluation_log + '\n')
     log.close()
@@ -105,7 +106,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
             # Select max probabilty (greedy decoding) then decode index to character
             _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index.data, preds_size.data)
-        
+
         else:
             preds, alphas = model(image, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
@@ -167,8 +168,11 @@ def validation(model, criterion, evaluation_loader, converter, opt):
                 confidence_score = pred_max_prob.cumprod(dim=0)[-1]
             except:
                 confidence_score = 0  # for empty pred case, when prune after "end of sentence" token ([s])
+            # log = open(f'./result/{opt.exp_name}/log_all_evaluation.txt', 'a')
+            # log.write(f'pred: {pred}, gt: {gt}, {pred == gt}, prob: {confidence_score:0.4f}\n')
+            # log.close()
             confidence_score_list.append(confidence_score)
-            # print(pred, gt, pred==gt, confidence_score)
+            # print(pred, gt, pred == gt, confidence_score.item())
 
     accuracy = n_correct / float(length_of_data) * 100
     norm_ED = norm_ED / float(length_of_data)  # ICDAR2019 Normalized Edit Distance
@@ -222,11 +226,12 @@ def test(opt):
                 shuffle=False,
                 num_workers=int(opt.workers),
                 collate_fn=AlignCollate_evaluation, pin_memory=True)
-            _, accuracy_by_best_model, _, _, _, _, _, _ = validation(
+            # valid_loss_avg.val(), accuracy, norm_ED, preds_str, confidence_score_list, labels, infer_time, length_of_data
+            _, accuracy, norm_ED, preds_str, confidence_score_list, _, _, length_of_data = validation(
                 model, criterion, evaluation_loader, converter, opt)
             log.write(eval_data_log)
-            print(f'{accuracy_by_best_model:0.3f}')
-            log.write(f'{accuracy_by_best_model:0.3f}\n')
+            print(f'ACC: {accuracy:0.3f}, norm_ED: {norm_ED:0.3f}')
+            log.write(f'ACC: {accuracy:0.3f}, norm_ED: {norm_ED:0.3f}\n')
             log.close()
 
 
