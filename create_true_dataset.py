@@ -146,7 +146,7 @@ def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
                 # preds_index = preds_index.view(-1)
                 preds_str = converter.decode(preds_index, preds_size)
             else:
-                preds = model(image, text_for_pred, is_train=False)
+                preds, alphas = model(image, text_for_pred, is_train=False)
                 _, preds_index = preds.max(dim=2)
                 preds_str = converter.decode(preds_index, length_for_pred)
 
