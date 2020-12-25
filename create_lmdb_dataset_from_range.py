@@ -47,7 +47,12 @@ def createImageAndGt_Range_Dataset(inputPath, gtPath, train_outputPath, val_outp
         os.makedirs(val_outputPath, exist_ok=True)
         val_env = lmdb.open(val_outputPath, map_size=map_size)
         val_cache = {}
-        val_cnt = 1
+        try:
+            with val_env.begin(write=False) as txn:
+                nSamples = int(txn.get('num-samples'.encode(), default=0))
+                val_cnt = nSamples + 1
+        except lmdb.NotFoundError:
+            val_cnt = 1
 
     filenames = []
     labels = []
@@ -109,7 +114,7 @@ def createImageAndGt_Range_Dataset(inputPath, gtPath, train_outputPath, val_outp
                 print('Written %d val files.' % (val_cnt))
             val_cnt += 1
 
-    train_nSamples = train_cnt-1
+    train_nSamples = train_cnt - 1
     train_cache['num-samples'.encode()] = str(train_nSamples).encode()
     writeCache(train_env, train_cache)
     if val_outputPath is not None:
