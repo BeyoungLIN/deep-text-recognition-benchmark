@@ -126,33 +126,34 @@ def demo(opt):
                         if opt.output_split:
                             alpha = alphas[idx, :, :].transpose()
                             img = Image.open(img_name).convert('RGB')
-                            draw = ImageDraw.Draw(img)
                             width, height = img.size
                             alpha = alpha[:pred_EOS]
-                            last_alpha_line = alpha[-1]
-                            # 消除padding的影响
-                            column_range = np.arange(0, last_alpha_line.shape[0])
-                            ratio = height / width
-                            if ratio > opt.imgH / opt.imgW:
-                                want_height = opt.imgW * ratio
-                                compress_ratio = want_height / opt.imgH
-                                column_range = column_range - last_alpha_line.shape[0] / 2
-                                column_range = column_range / 320 * (320 + compress_ratio * 5)
-                                column_range = column_range + last_alpha_line.shape[0] / 2
-                            # column_range = column_range - column_range[0]
-                            # last_column = np.argmax(last_alpha_line)
-                            last_column = np.dot(last_alpha_line, column_range)
-                            split_output = os.path.join('output',
-                                                        os.path.splitext(os.path.basename(img_name))[0] + '.txt')
-                            with open(split_output, 'w', encoding='utf-8') as fp:
-                                for alpha_line in alpha:
-                                    column = np.dot(alpha_line, column_range)
-                                    line_height = int(column / last_column * height)
-                                    line = [0, line_height, width-1, line_height]
-                                    line = list(map(str, line))
-                                    fp.write(','.join(line) + '\n')
-                                    # draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
-                                # img.show()
+                            if len(alpha) > 0:
+                                last_alpha_line = alpha[-1]
+                                # 消除padding的影响
+                                column_range = np.arange(0, last_alpha_line.shape[0])
+                                ratio = height / width
+                                if ratio > opt.imgH / opt.imgW:
+                                    want_height = opt.imgW * ratio
+                                    compress_ratio = want_height / opt.imgH
+                                    column_range = column_range - last_alpha_line.shape[0] / 2
+                                    column_range = column_range / 320 * (320 + compress_ratio * 5)
+                                    column_range = column_range + last_alpha_line.shape[0] / 2
+                                # column_range = column_range - column_range[0]
+                                # last_column = np.argmax(last_alpha_line)
+                                last_column = np.dot(last_alpha_line, column_range)
+                                split_output = os.path.join('output',
+                                                            os.path.splitext(os.path.basename(img_name))[0] + '.txt')
+                                with open(split_output, 'w', encoding='utf-8') as fp:
+                                    draw = ImageDraw.Draw(img)
+                                    for alpha_line in alpha:
+                                        column = np.dot(alpha_line, column_range)
+                                        line_height = int(column / last_column * height)
+                                        line = [0, line_height, width-1, line_height]
+                                        line = list(map(str, line))
+                                        fp.write(','.join(line) + '\n')
+                                        draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
+                                    img.save(os.path.join('output', os.path.basename(img_name)))
 
                         best_pred = pred[0]
                         best_prob = pred_max_prob[:, 0]
