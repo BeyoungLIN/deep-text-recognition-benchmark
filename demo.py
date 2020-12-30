@@ -131,14 +131,17 @@ def demo(opt):
                             if len(alpha) > 0:
                                 last_alpha_line = alpha[-1]
                                 # 消除padding的影响
-                                column_range = np.arange(0, last_alpha_line.shape[0])
+                                seq_length = last_alpha_line.shape[0]
+                                column_range = np.arange(0, seq_length)
                                 ratio = height / width
                                 if ratio > opt.imgH / opt.imgW:
                                     want_height = opt.imgW * ratio
                                     compress_ratio = want_height / opt.imgH
-                                    column_range = column_range - last_alpha_line.shape[0] / 2
-                                    column_range = column_range / 320 * (320 + compress_ratio * 5)
-                                    column_range = column_range + last_alpha_line.shape[0] / 2
+                                else:
+                                    compress_ratio = 1
+                                column_range = column_range - seq_length / 3
+                                column_range = column_range / 320 * (320 + compress_ratio * 5)
+                                column_range = column_range + seq_length / 3
                                 # column_range = column_range - column_range[0]
                                 # last_column = np.argmax(last_alpha_line)
                                 last_column = np.dot(last_alpha_line, column_range)

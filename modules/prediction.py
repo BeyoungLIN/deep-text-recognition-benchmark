@@ -64,6 +64,8 @@ class Attention(nn.Module):
                 _, next_input = probs_step.max(1)
                 targets = next_input
             alphas = torch.cat(alphas, dim=2)
+            # for alpha in alphas:
+            #     display_attention(alpha)
             return probs, alphas  # batch_size x num_steps x num_classes
 
 
