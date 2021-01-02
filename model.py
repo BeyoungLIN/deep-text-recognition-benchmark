@@ -105,3 +105,46 @@ class Model(nn.Module):
                 return prediction, alphas
         else:
             raise ValueError
+
+
+
+class Model_with_segment(Model):
+
+    def __init__(self, opt):
+        super(Model_with_segment, self).__init__(opt)
+        roi_net = None
+
+    def forward(self, input, text, is_train=True):
+        """ Transformation stage """
+        if not self.stages['Trans'] == "None":
+            input = self.Transformation(input)
+
+        """ Feature extraction stage """
+        visual_feature = self.FeatureExtraction(input)
+        if self.opt.page_orient == 'horizontal':
+            visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
+        elif self.opt.page_orient == 'vertical':
+            visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 2, 1, 3))  # [b, c, h, w] -> [b, h, c, w]
+        visual_feature = visual_feature.squeeze(3)
+
+        """ Sequence modeling stage """
+        if self.stages['Seq'] == 'BiLSTM':
+            contextual_feature = self.SequenceModeling(visual_feature)
+        else:
+            contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
+
+        """ Prediction stage """
+        if self.stages['Pred'] == 'CTC':
+            prediction = self.Prediction(contextual_feature.contiguous())
+            return prediction
+        elif self.stages['Pred'] == 'Attn':
+            if is_train:
+                prediction = self.Prediction(contextual_feature.contiguous(), text, is_train,
+                                             batch_max_length=self.opt.batch_max_length)
+                return prediction
+            else:
+                prediction, alphas = self.Prediction(contextual_feature.contiguous(), text, is_train,
+                                                     batch_max_length=self.opt.batch_max_length)
+                return prediction, alphas
+        else:
+            raise ValueError

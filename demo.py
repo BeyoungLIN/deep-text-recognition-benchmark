@@ -134,24 +134,31 @@ def demo(opt):
                                 seq_length = last_alpha_line.shape[0]
                                 column_range = np.arange(0, seq_length)
                                 ratio = height / width
+                                # too long, compress into opt shape, don't need pad
                                 if ratio > opt.imgH / opt.imgW:
                                     want_height = opt.imgW * ratio
                                     compress_ratio = want_height / opt.imgH
+                                    expect_last_column = seq_length
+                                # need pad
                                 else:
                                     compress_ratio = 1
-                                column_range = column_range - seq_length / 3
-                                column_range = column_range / 320 * (320 + compress_ratio * 5)
-                                column_range = column_range + seq_length / 3
+                                    expect_height = height / width * opt.imgW
+                                    expect_last_column = expect_height / opt.imgH * seq_length
+                                column_range = column_range - seq_length / 2
+                                column_range = column_range / 320 * (320 + (compress_ratio - 1) * 32)
+                                column_range = column_range + seq_length / 2
                                 # column_range = column_range - column_range[0]
                                 # last_column = np.argmax(last_alpha_line)
                                 last_column = np.dot(last_alpha_line, column_range)
+                                expect_linein = expect_last_column - last_column
                                 split_output = os.path.join('output',
                                                             os.path.splitext(os.path.basename(img_name))[0] + '.txt')
                                 with open(split_output, 'w', encoding='utf-8') as fp:
                                     draw = ImageDraw.Draw(img)
                                     for alpha_line in alpha:
                                         column = np.dot(alpha_line, column_range)
-                                        line_height = int(column / last_column * height)
+                                        line_height = int((column - expect_linein / 2) / (last_column - expect_linein / 2) * height)
+                                        # line_height = int(column / last_column * height)
                                         line = [0, line_height, width-1, line_height]
                                         line = list(map(str, line))
                                         fp.write(','.join(line) + '\n')
