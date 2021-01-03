@@ -116,7 +116,7 @@ class Model_with_segment(Model):
         super(Model_with_segment, self).__init__(opt)
         input_shape = {'faster_rcnn': ShapeSpec(channels=512, height=51, width=1, stride=0)}
         config = RPN.from_config(input_shape=input_shape)
-        rpn_net = RPN(
+        self.rpn_net = RPN(
             in_features=config['in_features'],
             head=config['head'],
             anchor_matcher=config['anchor_matcher'],

@@ -29,7 +29,6 @@ class RPN(nn.Module):
 
     def __init__(
             self,
-            *,
             in_features: List[str],
             head: nn.Module,
             anchor_matcher: Matcher,
@@ -77,7 +76,6 @@ class RPN(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.rpn_head = head
-        self.anchor_generator = anchor_generator
         self.anchor_matcher = anchor_matcher
         self.box2box_transform = box2box_transform
         self.batch_size_per_image = batch_size_per_image
@@ -182,7 +180,7 @@ class RPN(nn.Module):
             if self.anchor_boundary_thresh >= 0:
                 # Discard anchors that go out of the boundaries of the image
                 # NOTE: This is legacy functionality that is turned off by default in Detectron2
-                anchors_inside_image = anchors.inside_box(image_size_i, self.anchor_boundary_thresh)
+                anchors_inside_image = anchors.inside_box(image_size_i, int(self.anchor_boundary_thresh))
                 gt_labels_i[~anchors_inside_image] = -1
 
             # A vector of labels (-1, 0, 1) for each anchor
