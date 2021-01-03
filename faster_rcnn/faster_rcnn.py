@@ -364,7 +364,6 @@ class FastRCNNOutputLayers(nn.Module):
     def __init__(
         self,
         input_shape: ShapeSpec,
-        *,
         box2box_transform,
         num_classes: int,
         test_score_thresh: float = 0.0,
@@ -420,19 +419,19 @@ class FastRCNNOutputLayers(nn.Module):
         self.loss_weight = loss_weight
 
     @classmethod
-    def from_config(cls, cfg, input_shape):
+    def from_config(cls, input_shape):
         return {
             "input_shape": input_shape,
-            "box2box_transform": Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS),
+            "box2box_transform": Box2BoxTransform(weights=(10.0, 10.0, 5.0, 5.0)),
             # fmt: off
-            "num_classes"           : cfg.MODEL.ROI_HEADS.NUM_CLASSES,
-            "cls_agnostic_bbox_reg" : cfg.MODEL.ROI_BOX_HEAD.CLS_AGNOSTIC_BBOX_REG,
-            "smooth_l1_beta"        : cfg.MODEL.ROI_BOX_HEAD.SMOOTH_L1_BETA,
-            "test_score_thresh"     : cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST,
-            "test_nms_thresh"       : cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST,
-            "test_topk_per_image"   : cfg.TEST.DETECTIONS_PER_IMAGE,
-            "box_reg_loss_type"     : cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_LOSS_TYPE,
-            "loss_weight"           : {"loss_box_reg": cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_LOSS_WEIGHT},
+            "num_classes"           : 1,
+            "cls_agnostic_bbox_reg" : False,
+            "smooth_l1_beta"        : 0.0,
+            "test_score_thresh"     : 0.05,
+            "test_nms_thresh"       : 0.5,
+            "test_topk_per_image"   : 100,
+            "box_reg_loss_type"     : 'smooth_l1',
+            "loss_weight"           : {"loss_box_reg": 1.0},
             # fmt: on
         }
 
