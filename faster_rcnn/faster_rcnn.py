@@ -39,12 +39,12 @@ Naming convention:
 
 
 def fast_rcnn_inference(
-    boxes: List[torch.Tensor],
-    scores: List[torch.Tensor],
-    image_shapes: List[Tuple[int, int]],
-    score_thresh: float,
-    nms_thresh: float,
-    topk_per_image: int,
+        boxes: List[torch.Tensor],
+        scores: List[torch.Tensor],
+        image_shapes: List[Tuple[int, int]],
+        score_thresh: float,
+        nms_thresh: float,
+        topk_per_image: int,
 ):
     """
     Call `fast_rcnn_inference_single_image` for all images.
@@ -79,12 +79,12 @@ def fast_rcnn_inference(
 
 
 def fast_rcnn_inference_single_image(
-    boxes,
-    scores,
-    image_shape: Tuple[int, int],
-    score_thresh: float,
-    nms_thresh: float,
-    topk_per_image: int,
+        boxes,
+        scores,
+        image_shape: Tuple[int, int],
+        score_thresh: float,
+        nms_thresh: float,
+        topk_per_image: int,
 ):
     """
     Single-image inference. Return bounding-box detection results by thresholding
@@ -139,13 +139,13 @@ class FastRCNNOutputs:
     """
 
     def __init__(
-        self,
-        box2box_transform,
-        pred_class_logits,
-        pred_proposal_deltas,
-        proposals,
-        smooth_l1_beta=0.0,
-        box_reg_loss_type="smooth_l1",
+            self,
+            box2box_transform,
+            pred_class_logits,
+            pred_proposal_deltas,
+            proposals,
+            smooth_l1_beta=0.0,
+            box_reg_loss_type="smooth_l1",
     ):
         """
         Args:
@@ -362,17 +362,17 @@ class FastRCNNOutputLayers(nn.Module):
     """
 
     def __init__(
-        self,
-        input_shape: ShapeSpec,
-        box2box_transform,
-        num_classes: int,
-        test_score_thresh: float = 0.0,
-        test_nms_thresh: float = 0.5,
-        test_topk_per_image: int = 100,
-        cls_agnostic_bbox_reg: bool = False,
-        smooth_l1_beta: float = 0.0,
-        box_reg_loss_type: str = "smooth_l1",
-        loss_weight: Union[float, Dict[str, float]] = 1.0,
+            self,
+            input_shape: ShapeSpec,
+            box2box_transform,
+            num_classes: int,
+            test_score_thresh: float = 0.0,
+            test_nms_thresh: float = 0.5,
+            test_topk_per_image: int = 100,
+            cls_agnostic_bbox_reg: bool = False,
+            smooth_l1_beta: float = 0.0,
+            box_reg_loss_type: str = "smooth_l1",
+            loss_weight: Union[float, Dict[str, float]] = 1.0,
     ):
         """
         NOTE: this interface is experimental.
@@ -424,14 +424,14 @@ class FastRCNNOutputLayers(nn.Module):
             "input_shape": input_shape,
             "box2box_transform": Box2BoxTransform(weights=(10.0, 10.0, 5.0, 5.0)),
             # fmt: off
-            "num_classes"           : 1,
-            "cls_agnostic_bbox_reg" : False,
-            "smooth_l1_beta"        : 0.0,
-            "test_score_thresh"     : 0.05,
-            "test_nms_thresh"       : 0.5,
-            "test_topk_per_image"   : 100,
-            "box_reg_loss_type"     : 'smooth_l1',
-            "loss_weight"           : {"loss_box_reg": 1.0},
+            "num_classes": 1,
+            "cls_agnostic_bbox_reg": False,
+            "smooth_l1_beta": 0.0,
+            "test_score_thresh": 0.05,
+            "test_nms_thresh": 0.5,
+            "test_topk_per_image": 100,
+            "box_reg_loss_type": 'smooth_l1',
+            "loss_weight": {"loss_box_reg": 1.0},
             # fmt: on
         }
 
@@ -532,7 +532,7 @@ class FastRCNNOutputLayers(nn.Module):
         return predict_boxes.split(num_prop_per_image)
 
     def predict_boxes(
-        self, predictions: Tuple[torch.Tensor, torch.Tensor], proposals: List[Instances]
+            self, predictions: Tuple[torch.Tensor, torch.Tensor], proposals: List[Instances]
     ):
         """
         Args:
@@ -559,7 +559,7 @@ class FastRCNNOutputLayers(nn.Module):
         return predict_boxes.split(num_prop_per_image)
 
     def predict_probs(
-        self, predictions: Tuple[torch.Tensor, torch.Tensor], proposals: List[Instances]
+            self, predictions: Tuple[torch.Tensor, torch.Tensor], proposals: List[Instances]
     ):
         """
         Args:
