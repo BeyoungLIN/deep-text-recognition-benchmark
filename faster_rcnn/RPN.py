@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from fvcore.nn import giou_loss, smooth_l1_loss
 import torch.nn.functional as F
 
+from .faster_rcnn import FastRCNNOutputLayers
 from .image_list import ImageList
 from .boxes import Boxes, pairwise_iou
 from .instances import Instances
@@ -99,30 +100,18 @@ class RPN(nn.Module):
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
         in_features = 'res'
-        ret = {
-            "in_features": in_features,
-            "min_box_size": 0,
-            "nms_thresh": 0.7,
-            "batch_size_per_image": 256,
-            "positive_fraction": 0.5,
-            "loss_weight": {
+        FastRCNN_config = FastRCNNOutputLayers.from_config(input_shape['faster_rcnn'])
+        ret = {"in_features": in_features, "min_box_size": 0, "nms_thresh": 0.7, "batch_size_per_image": 256,
+               "positive_fraction": 0.5, "loss_weight": {
                 "loss_rpn_cls": 1.0,
                 "loss_rpn_loc": 1.0,
-            },
-            "anchor_boundary_thresh": -1,
-            "box2box_transform": Box2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0)),
-            "box_reg_loss_type": 'smooth_l1',
-            "smooth_l1_beta": 0.0,
-        }
+            }, "anchor_boundary_thresh": -1, "box2box_transform": Box2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0)),
+               "box_reg_loss_type": 'smooth_l1', "smooth_l1_beta": 0.0, "pre_nms_topk": (12000, 6000),
+               "post_nms_topk": (2000, 1000),
+               "anchor_matcher": Matcher(
+                   [0.3, 0.7], [0, -1, 1], allow_low_quality_matches=True
+               ), "head": FastRCNNOutputLayers(*FastRCNN_config)}
 
-        ret["pre_nms_topk"] = (12000, 6000)
-        ret["post_nms_topk"] = (2000, 1000)
-
-        ret["anchor_generator"] = build_anchor_generator(cfg, [input_shape[f] for f in in_features])
-        ret["anchor_matcher"] = Matcher(
-            [0.3, 0.7], [0, -1, 1], allow_low_quality_matches=True
-        )
-        ret["head"] = build_rpn_head(cfg, [input_shape[f] for f in in_features])
         return ret
 
     def _subsample_labels(self, label):
