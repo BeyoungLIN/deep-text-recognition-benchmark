@@ -16,6 +16,8 @@ limitations under the License.
 
 import torch.nn as nn
 
+from faster_rcnn.RPN import RPN
+from faster_rcnn.shape_spec import ShapeSpec
 from modules.transformation import TPS_SpatialTransformerNetwork
 from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
@@ -112,7 +114,24 @@ class Model_with_segment(Model):
 
     def __init__(self, opt):
         super(Model_with_segment, self).__init__(opt)
-        roi_net = None
+        input_shape = {'faster_rcnn': ShapeSpec(channels=512, height=51, width=1, stride=0)}
+        config = RPN.from_config(input_shape=input_shape)
+        rpn_net = RPN(
+            in_features=config['in_features'],
+            head=config['head'],
+            anchor_matcher=config['anchor_matcher'],
+            box2box_transform=config['box2box_transform'],
+            batch_size_per_image=config['batch_size_per_image'],
+            positive_fraction=config['positive_fraction'],
+            pre_nms_topk=config['pre_nms_topk'],
+            post_nms_topk=config['post_nms_topk'],
+            nms_thresh=config['nms_thresh'],
+            min_box_size=config['min_box_size'],
+            anchor_boundary_thresh=config['anchor_boundary_thresh'],
+            loss_weight=config['loss_weight'],
+            box_reg_loss_type=config['box_reg_loss_type'],
+            smooth_l1_beta=config['smooth_l1_beta']
+        )
 
     def forward(self, input, text, is_train=True):
         """ Transformation stage """
