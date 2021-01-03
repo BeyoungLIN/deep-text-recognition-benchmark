@@ -13,6 +13,7 @@ from .boxes import Boxes, pairwise_iou
 from .instances import Instances
 from .box_regression import Box2BoxTransform
 from .matcher import Matcher
+from .sampling import subsample_labels
 from .shape_spec import ShapeSpec
 
 from .memory import retry_if_cuda_oom
@@ -97,29 +98,29 @@ class RPN(nn.Module):
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
-        in_features = cfg.MODEL.RPN.IN_FEATURES
+        in_features = 'res'
         ret = {
             "in_features": in_features,
-            "min_box_size": cfg.MODEL.PROPOSAL_GENERATOR.MIN_SIZE,
-            "nms_thresh": cfg.MODEL.RPN.NMS_THRESH,
-            "batch_size_per_image": cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE,
-            "positive_fraction": cfg.MODEL.RPN.POSITIVE_FRACTION,
+            "min_box_size": 0,
+            "nms_thresh": 0.7,
+            "batch_size_per_image": 256,
+            "positive_fraction": 0.5,
             "loss_weight": {
-                "loss_rpn_cls": cfg.MODEL.RPN.LOSS_WEIGHT,
-                "loss_rpn_loc": cfg.MODEL.RPN.BBOX_REG_LOSS_WEIGHT * cfg.MODEL.RPN.LOSS_WEIGHT,
+                "loss_rpn_cls": 1.0,
+                "loss_rpn_loc": 1.0,
             },
-            "anchor_boundary_thresh": cfg.MODEL.RPN.BOUNDARY_THRESH,
-            "box2box_transform": Box2BoxTransform(weights=cfg.MODEL.RPN.BBOX_REG_WEIGHTS),
-            "box_reg_loss_type": cfg.MODEL.RPN.BBOX_REG_LOSS_TYPE,
-            "smooth_l1_beta": cfg.MODEL.RPN.SMOOTH_L1_BETA,
+            "anchor_boundary_thresh": -1,
+            "box2box_transform": Box2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0)),
+            "box_reg_loss_type": 'smooth_l1',
+            "smooth_l1_beta": 0.0,
         }
 
-        ret["pre_nms_topk"] = (cfg.MODEL.RPN.PRE_NMS_TOPK_TRAIN, cfg.MODEL.RPN.PRE_NMS_TOPK_TEST)
-        ret["post_nms_topk"] = (cfg.MODEL.RPN.POST_NMS_TOPK_TRAIN, cfg.MODEL.RPN.POST_NMS_TOPK_TEST)
+        ret["pre_nms_topk"] = (12000, 6000)
+        ret["post_nms_topk"] = (2000, 1000)
 
         ret["anchor_generator"] = build_anchor_generator(cfg, [input_shape[f] for f in in_features])
         ret["anchor_matcher"] = Matcher(
-            cfg.MODEL.RPN.IOU_THRESHOLDS, cfg.MODEL.RPN.IOU_LABELS, allow_low_quality_matches=True
+            [0.3, 0.7], [0, -1, 1], allow_low_quality_matches=True
         )
         ret["head"] = build_rpn_head(cfg, [input_shape[f] for f in in_features])
         return ret
