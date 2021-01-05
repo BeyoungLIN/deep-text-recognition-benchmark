@@ -16,60 +16,39 @@ limitations under the License.
 
 import torch.nn as nn
 
+from faster_rcnn.RPN import RPN
+from faster_rcnn.shape_spec import ShapeSpec
 from modules.transformation import TPS_SpatialTransformerNetwork
 from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
 
+from .model import Model
 
-class Model(nn.Module):
+
+
+class Model_with_RPN(Model):
 
     def __init__(self, opt):
-        super(Model, self).__init__()
-        self.opt = opt
-        self.stages = {'Trans': opt.Transformation, 'Feat': opt.FeatureExtraction,
-                       'Seq': opt.SequenceModeling, 'Pred': opt.Prediction}
-
-        """ Transformation """
-        if opt.Transformation == 'TPS':
-            self.Transformation = TPS_SpatialTransformerNetwork(
-                F=opt.num_fiducial,
-                I_size=(opt.imgH, opt.imgW),
-                I_r_size=(opt.imgH, opt.imgW),
-                I_channel_num=opt.input_channel
-            )
-        else:
-            print('No Transformation module specified')
-
-        """ FeatureExtraction """
-        if opt.FeatureExtraction == 'VGG':
-            self.FeatureExtraction = VGG_FeatureExtractor(opt.input_channel, opt.output_channel)
-        elif opt.FeatureExtraction == 'RCNN':
-            self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
-        elif opt.FeatureExtraction == 'ResNet':
-            self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
-        else:
-            raise Exception('No FeatureExtraction module specified')
-        self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
-        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
-
-        """ Sequence modeling"""
-        if opt.SequenceModeling == 'BiLSTM':
-            self.SequenceModeling = nn.Sequential(
-                BidirectionalLSTM(self.FeatureExtraction_output, opt.hidden_size, opt.hidden_size),
-                BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size))
-            self.SequenceModeling_output = opt.hidden_size
-        else:
-            print('No SequenceModeling module specified')
-            self.SequenceModeling_output = self.FeatureExtraction_output
-
-        """ Prediction """
-        if opt.Prediction == 'CTC':
-            self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
-        elif opt.Prediction == 'Attn':
-            self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
-        else:
-            raise Exception('Prediction is neither CTC or Attn')
+        super(Model_with_RPN, self).__init__(opt)
+        input_shape = {'faster_rcnn': ShapeSpec(channels=512, height=51, width=1, stride=0)}
+        config = RPN.from_config(input_shape=input_shape)
+        self.rpn_net = RPN(
+            in_features=config['in_features'],
+            head=config['head'],
+            anchor_matcher=config['anchor_matcher'],
+            box2box_transform=config['box2box_transform'],
+            batch_size_per_image=config['batch_size_per_image'],
+            positive_fraction=config['positive_fraction'],
+            pre_nms_topk=config['pre_nms_topk'],
+            post_nms_topk=config['post_nms_topk'],
+            nms_thresh=config['nms_thresh'],
+            min_box_size=config['min_box_size'],
+            anchor_boundary_thresh=config['anchor_boundary_thresh'],
+            loss_weight=config['loss_weight'],
+            box_reg_loss_type=config['box_reg_loss_type'],
+            smooth_l1_beta=config['smooth_l1_beta']
+        )
 
     def forward(self, input, text, is_train=True):
         """ Transformation stage """
