@@ -26,11 +26,10 @@ from modules.prediction import Attention
 from .model import Model
 
 
-
-class Model_with_RPN(Model):
+class ModelWithRPN(Model):
 
     def __init__(self, opt):
-        super(Model_with_RPN, self).__init__(opt)
+        super(ModelWithRPN, self).__init__(opt)
         input_shape = {'faster_rcnn': ShapeSpec(channels=512, height=51, width=1, stride=0)}
         config = RPN.from_config(input_shape=input_shape)
         self.rpn_net = RPN(
