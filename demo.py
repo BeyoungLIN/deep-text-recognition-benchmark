@@ -216,6 +216,7 @@ def demo(opt):
                                 expect_last_column = expect_height / opt.imgH * preds_len
                             split_output = os.path.join('output',
                                                         os.path.splitext(os.path.basename(img_name))[0] + '.txt')
+                            CTC_start = 10
                             with open(split_output, 'w', encoding='utf-8') as fp:
                                 cur_pos = 0
                                 draw = ImageDraw.Draw(img)
@@ -224,8 +225,10 @@ def demo(opt):
                                     if key != 0:
                                         nxt_pos = cur_pos - 1 + len(group)
                                         column = (cur_pos + nxt_pos) // 2
-                                        line_height = int(column / expect_last_column * height)
-                                        # line_height = int(column / last_column * height)
+                                        column = column - CTC_start
+                                        column = (column - preds_len / 2) * 1.1 + preds_len / 2
+                                        line_height = int(column / (expect_last_column - CTC_start) * height)
+
                                         line = [0, line_height, width - 1, line_height]
                                         line = list(map(str, line))
                                         fp.write(','.join(line) + '\n')
