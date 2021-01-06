@@ -1,3 +1,4 @@
+import itertools
 import os
 import string
 import argparse
@@ -186,9 +187,8 @@ def demo(opt):
                 else:
                     preds_prob = F.softmax(preds, dim=2)
                     preds_max_prob, _ = preds_prob.max(dim=2)
-                    for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
-                        pred_EOS = pred.find('[s]')
-                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                    for img_name, pred, pred_max_prob, pred_idx in zip(image_path_list, preds_str, preds_max_prob, preds_index):
+                        pred_EOS = len(pred)
                         pred_max_prob = pred_max_prob[:pred_EOS]
                         # calculate confidence score (= multiply of pred_max_prob)
                         try:
@@ -197,6 +197,44 @@ def demo(opt):
                             confidence_score = 0.0
                             # print(f'{img_name:25s}\t{pred:25s}\t can\'t predict')
                             # raise ValueError()
+                        if opt.output_split:
+                            img = Image.open(img_name).convert('RGB')
+                            width, height = img.size
+                            pred_idx = pred_idx.detach().cpu().numpy().tolist()
+                            preds_len = len(pred_idx)
+                            index_group = itertools.groupby(pred_idx)
+                            ratio = height / width
+                            # too long, compress into opt shape, don't need pad
+                            if ratio > opt.imgH / opt.imgW:
+                                want_height = opt.imgW * ratio
+                                compress_ratio = want_height / opt.imgH
+                                expect_last_column = preds_len
+                            # need pad
+                            else:
+                                compress_ratio = 1
+                                expect_height = height / width * opt.imgW
+                                expect_last_column = expect_height / opt.imgH * preds_len
+                            split_output = os.path.join('output',
+                                                        os.path.splitext(os.path.basename(img_name))[0] + '.txt')
+                            with open(split_output, 'w', encoding='utf-8') as fp:
+                                cur_pos = 0
+                                draw = ImageDraw.Draw(img)
+                                for key, group in index_group:
+                                    group = list(group)
+                                    if key != 0:
+                                        nxt_pos = cur_pos - 1 + len(group)
+                                        column = (cur_pos + nxt_pos) // 2
+                                        line_height = int(column / expect_last_column * height)
+                                        # line_height = int(column / last_column * height)
+                                        line = [0, line_height, width - 1, line_height]
+                                        line = list(map(str, line))
+                                        fp.write(','.join(line) + '\n')
+                                        draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0),
+                                                  width=2)
+                                    cur_pos += len(group)
+                                img.save(os.path.join('output', os.path.basename(img_name)))
+
+
 
                         print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
                         log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
