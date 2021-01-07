@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 from utils import CTCLabelConverter, AttnLabelConverter
 from dataset import RawDataset, AlignCollate
 from model import Model
+
 device = None
 
 
@@ -102,9 +103,9 @@ def demo(opt):
                     print(img_name, end='')
                     log.write(img_name)
                     for pred_char, pred_prob in zip(pred, pred_max_prob):
-                        print(','+pred_char, end='')
+                        print(',' + pred_char, end='')
                         print(',%.4f' % pred_prob, end='')
-                        log.write(','+pred_char)
+                        log.write(',' + pred_char)
                         log.write(',%.4f' % pred_prob)
                     print()
                     log.write('\n')
@@ -158,12 +159,14 @@ def demo(opt):
                                     draw = ImageDraw.Draw(img)
                                     for alpha_line in alpha:
                                         column = np.dot(alpha_line, column_range)
-                                        line_height = int((column - expect_linein / 2) / (last_column - expect_linein / 2) * height)
+                                        line_height = int(
+                                            (column - expect_linein / 2) / (last_column - expect_linein / 2) * height)
                                         # line_height = int(column / last_column * height)
-                                        line = [0, line_height, width-1, line_height]
+                                        line = [0, line_height, width - 1, line_height]
                                         line = list(map(str, line))
                                         fp.write(','.join(line) + '\n')
-                                        draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0), width=2)
+                                        draw.line(((0, line_height), (width - 1, line_height)), fill=(255, 0, 0),
+                                                  width=2)
                                     img.save(os.path.join('output', os.path.basename(img_name)))
 
                         best_pred = pred[0]
@@ -187,7 +190,8 @@ def demo(opt):
                 else:
                     preds_prob = F.softmax(preds, dim=2)
                     preds_max_prob, _ = preds_prob.max(dim=2)
-                    for img_name, pred, pred_max_prob, pred_idx in zip(image_path_list, preds_str, preds_max_prob, preds_index):
+                    for img_name, pred, pred_max_prob, pred_idx in zip(image_path_list, preds_str, preds_max_prob,
+                                                                       preds_index):
                         pred_EOS = len(pred)
                         pred_max_prob = pred_max_prob[:pred_EOS]
                         # calculate confidence score (= multiply of pred_max_prob)
@@ -202,7 +206,6 @@ def demo(opt):
                             width, height = img.size
                             pred_idx = pred_idx.detach().cpu().numpy().tolist()
                             preds_len = len(pred_idx)
-                            index_group = itertools.groupby(pred_idx)
                             ratio = height / width
                             # too long, compress into opt shape, don't need pad
                             if ratio > opt.imgH / opt.imgW:
@@ -216,18 +219,29 @@ def demo(opt):
                                 expect_last_column = expect_height / opt.imgH * preds_len
                             split_output = os.path.join('output',
                                                         os.path.splitext(os.path.basename(img_name))[0] + '.txt')
-                            CTC_start = 10
+
+                            # hyper-parameter, suggestion 6-0.46-0.21 for 320CTC
+                            # TODO find hyper-parameter for 480CTC
+                            CTC_start = 6
+                            center_ratio = 0.46
+                            zoom_ratio = 0.21
+                            # for CTC_start in np.arange(6.0, 7.1, 0.1):
+                            #     for center_ratio in np.arange(0.37, 0.46, 0.01):
+                            #         for zoom_ratio in np.arange(0.18, 0.23, 0.01):
+                            img = Image.open(img_name).convert('RGB')
                             with open(split_output, 'w', encoding='utf-8') as fp:
                                 cur_pos = 0
                                 draw = ImageDraw.Draw(img)
+                                index_group = itertools.groupby(pred_idx)
                                 for key, group in index_group:
                                     group = list(group)
                                     if key != 0:
                                         nxt_pos = cur_pos - 1 + len(group)
                                         column = (cur_pos + nxt_pos) // 2
                                         column = column - CTC_start
-                                        column = (column - preds_len / 2) * 1.1 + preds_len / 2
-                                        line_height = int(column / (expect_last_column - CTC_start) * height)
+                                        column = (column - preds_len * center_ratio) * (1 + zoom_ratio * compress_ratio) \
+                                                 + (preds_len * center_ratio)
+                                        line_height = int(column / expect_last_column * height)
 
                                         line = [0, line_height, width - 1, line_height]
                                         line = list(map(str, line))
@@ -236,8 +250,7 @@ def demo(opt):
                                                   width=2)
                                     cur_pos += len(group)
                                 img.save(os.path.join('output', os.path.basename(img_name)))
-
-
+                                # img.save(os.path.join('output', '{}_{:02d}_{:03d}_{:03d}.jpg'.format(os.path.splitext(os.path.basename(img_name))[0], int(CTC_start*10), int(center_ratio*100), int(zoom_ratio*100))))
 
                         print(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}')
                         log.write(f'{img_name:25s}\t{pred:25s}\t{confidence_score:0.4f}\n')
