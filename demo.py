@@ -297,26 +297,6 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     """ vocab / character number configuration """
-    '''
-    if opt.character in ['CN-s', 'CN-m', 'CN-l']:
-        if opt.character == 'CN-s':
-            with open('charset/charset_s.txt', 'r', encoding='utf-8') as chars:
-                charset = chars.readlines()
-            charset = [c.strip() for c in charset]
-        else:
-            charset_csv = pd.read_csv('charset/all_abooks.unigrams_desc.Clean.rate.csv')
-            if opt.character == 'CN-m':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.999].values.squeeze(axis=-1).tolist()
-            elif opt.character == 'CN-l':
-                charset = charset_csv[['char']][charset_csv['acc_rate'] <= 0.9999].values.squeeze(axis=-1).tolist()
-            else:
-                raise ValueError
-        charset = ''.join(charset)
-        opt.character = charset
-    elif opt.sensitive:
-        opt.character = string.printable[:-6]  # same with ASTER setting (use 94 char).
-    '''
-
     if opt.character in ['CN-s', 'CN-m', 'CN-l', 'CN-xl']:
         size = opt.character.split('-')[-1]
         with open('charset/charset_' + size + '.txt', 'r', encoding='utf-8') as chars:
