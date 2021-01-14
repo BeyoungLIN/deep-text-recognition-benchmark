@@ -44,8 +44,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--done_path', type=str, default='result/done.txt')
     parser.add_argument('--count_path', type=str, default='result/count.txt')
+    parser.add_argument('--todo_file', type=str, default=None)
     parser.add_argument('--type', type=str, required=True, choices=['dingxiu', 'diaolong'])
-    parser.add_argument('--input_path', type=str, required=True)
+    parser.add_argument('--input_path', type=str, default=None)
     parser.add_argument('--output_path', type=str, required=True)
     parser.add_argument('--shuffle', action='store_true')
 
@@ -250,15 +251,18 @@ if __name__ == '__main__':
     args = parse_args()
     done = get_already_done(args.done_path)
     cnt = get_count(args.count_path)
-    todo_list = list()
-    for root, dirs, files in os.walk(args.input_path):
-        for file in files:
-            if os.path.splitext(file)[-1].lower() not in IMG_EXT:
-                continue
-            file_path = os.path.join(root, file)
-            if file_path in done:
-                continue
-            todo_list.append(file_path)
+    if args.todo_file is None:
+        todo_list = list()
+        for root, dirs, files in os.walk(args.input_path):
+            for file in files:
+                if os.path.splitext(file)[-1].lower() not in IMG_EXT:
+                    continue
+                file_path = os.path.join(root, file)
+                if file_path in done:
+                    continue
+                todo_list.append(file_path)
+    else:
+        todo_list = [s.rstrip() for s in open(args.todo_file, 'r', encoding='utf-8').readlines()]
     print('{} files to do.'.format(len(todo_list)), flush=True)
     if args.shuffle:
         print('shuffle todo files.')
