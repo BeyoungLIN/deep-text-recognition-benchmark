@@ -14,6 +14,7 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 from dataset import AlignCollate, PILDataset
 from model import Model
@@ -128,9 +129,9 @@ def get_gt(html_path, type):
 
 def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
     dataset = PILDataset(args, PIL_image_list)
-    demo_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False,
-                                              num_workers=int(args.workers), collate_fn=AlignCollate_demo,
-                                              pin_memory=True)
+    demo_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False,
+                             num_workers=int(args.workers), collate_fn=AlignCollate_demo,
+                             pin_memory=True)
     total_preds_str = []
     with torch.no_grad():
         for image_tensors, image_path_list in demo_loader:
