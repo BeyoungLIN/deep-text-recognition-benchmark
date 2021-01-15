@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument('--input_path', type=str, default=None)
     parser.add_argument('--output_path', type=str, required=True)
     parser.add_argument('--shuffle', action='store_true')
+    parser.add_argument('--strict', action='store_true')
 
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
@@ -159,7 +160,7 @@ def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
     return total_preds_str
 
 
-def check(gt, pred):
+def check_relax(gt, pred):
     if abs(len(gt) - len(pred)) >= 2:
         return False
     dis = editdistance.distance(gt, pred)
@@ -167,7 +168,19 @@ def check(gt, pred):
         return True
 
 
-def get_match_idx(preds, gts):
+def check_strict(gt, pred):
+    if abs(len(gt) - len(pred)) >= 1:
+        return False
+    dis = editdistance.distance(gt, pred)
+    if dis < max(len(gt), len(pred)) * 0.2:
+        return True
+
+
+def get_match_idx(preds, gts, strict=False):
+    if strict:
+        check = check_strict
+    else:
+        check = check_relax
     matching_idxs = []
     preds_len = len(preds)
     gts_len = len(gts)
@@ -204,7 +217,7 @@ def get_match_img(args, model, AlignCollate_demo, converter,
         # crop_img.show()
         PIL_image_list.append(crop_img)
     pred = demo(args, PIL_image_list, model, AlignCollate_demo, converter)
-    matching_idx = get_match_idx(pred, gts)
+    matching_idx = get_match_idx(pred, gts, args.strict)
     for p_idx, g_idx in matching_idx:
         img = PIL_image_list[p_idx]
         img_gt = gts[g_idx]
@@ -250,7 +263,9 @@ def init_model(args):
 if __name__ == '__main__':
     args = parse_args()
     done = get_already_done(args.done_path)
+    print('{} imgs already done.'.format(len(done)))
     cnt = get_count(args.count_path)
+    print('{} lines has been extracted.'.format(cnt))
     if args.todo_file is None:
         todo_list = list()
         for root, dirs, files in os.walk(args.input_path):
