@@ -267,6 +267,7 @@ if __name__ == '__main__':
     cnt = get_count(args.count_path)
     print('{} lines has been extracted.'.format(cnt))
     if args.todo_file is None:
+        print('no todo_file in args. Scan input_path.')
         todo_list = list()
         for root, dirs, files in os.walk(args.input_path):
             for file in files:
@@ -277,6 +278,7 @@ if __name__ == '__main__':
                     continue
                 todo_list.append(file_path)
     else:
+        print('load todo_file from {}.'.format(args.todo_file))
         todo_list = [s.rstrip() for s in open(args.todo_file, 'r', encoding='utf-8').readlines()]
     print('{} files to do.'.format(len(todo_list)), flush=True)
     if args.shuffle:
