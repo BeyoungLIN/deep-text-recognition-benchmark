@@ -170,10 +170,10 @@ def check_relax(gt, pred):
 
 
 def check_strict(gt, pred):
-    if abs(len(gt) - len(pred)) >= 1:
+    if abs(len(gt) - len(pred)) >= 2:
         return False
     dis = editdistance.distance(gt, pred)
-    if dis < max(len(gt), len(pred)) * 0.2:
+    if dis < max(len(gt), len(pred)) * 0.3:
         return True
 
 
