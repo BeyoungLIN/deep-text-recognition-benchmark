@@ -341,7 +341,7 @@ if __name__ == '__main__':
             continue
         html_gt_path = os.path.splitext(file_path)[0] + '.html'
         print('started from No. {} '.format(cnt), end='')
-        match_cnt, acc_cnt, should_cnt, current_cnt = get_match_img(
+        match_cnt, acc_cnt, should_cnt, cnt = get_match_img(
             args, model, AlignCollate_demo, converter, file_path, db_result_path, html_gt_path, cnt
         )
         print('{} should get {} imgs, get {} match imgs, {} imgs perfectly right.'.format(
