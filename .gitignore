@@ -222,5 +222,7 @@ fonts/
 
 # demo log
 log_demo_result.txt
-
 output/
+
+# extract dataset
+extract/
