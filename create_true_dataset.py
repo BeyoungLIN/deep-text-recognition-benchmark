@@ -49,8 +49,9 @@ def parse_args():
     parser.add_argument('--type', type=str, required=True, choices=['dingxiu', 'diaolong'])
     parser.add_argument('--input_path', type=str, default=None)
     parser.add_argument('--output_path', type=str, required=True)
-    parser.add_argument('--shuffle', action='store_true')
-    parser.add_argument('--strict', action='store_true')
+    parser.add_argument('--shuffle', action='store_true', help='random shuffle input list')
+    parser.add_argument('--strict', action='store_true', help='use strict check(len diff less than 2 and edit_dist less than 0.2).')
+    parser.add_argument('--hold_acc_prob', type=float, default=0.33, help='If gt and pred is the same, hold it with this prob.')
 
     parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
     parser.add_argument('--batch_size', type=int, default=192, help='input batch size')
@@ -163,18 +164,26 @@ def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
 
 def check_relax(gt, pred):
     if abs(len(gt) - len(pred)) >= 2:
-        return False
+        return 0
     dis = editdistance.distance(gt, pred)
-    if dis < max(len(gt), len(pred)) * 0.5:
-        return True
+    if dis == 0:
+        return 2
+    elif dis < max(len(gt), len(pred)) * 0.5:
+        return 1
+    else:
+        return 0
 
 
 def check_strict(gt, pred):
     if abs(len(gt) - len(pred)) >= 2:
-        return False
+        return 0
     dis = editdistance.distance(gt, pred)
-    if dis < max(len(gt), len(pred)) * 0.3:
-        return True
+    if dis == 0:
+        return 2
+    elif dis < max(len(gt), len(pred)) * 0.3:
+        return 1
+    else:
+        return 0
 
 
 def get_match_idx(preds, gts, strict=False):
@@ -191,8 +200,9 @@ def get_match_idx(preds, gts, strict=False):
         current_gt = gts[current_gt_idx]
         while True:
             current_pred = preds[current_pred_idx]
-            if check(current_gt, current_pred):
-                matching_idxs.append((current_pred_idx, current_gt_idx))
+            check_res = check(current_gt, current_pred)
+            if check_res > 0:
+                matching_idxs.append((current_pred_idx, current_gt_idx, check_res))
                 break
             else:
                 current_pred_idx += 1
@@ -209,6 +219,8 @@ def get_match_idx(preds, gts, strict=False):
 def get_match_img(args, model, AlignCollate_demo, converter,
                   img_path, db_path, html_path, current_cnt):
     match_cnt = 0
+    acc_cnt = 0
+    should_cnt = 0
     boxes = get_box(db_path)
     gts = get_gt(html_path, args.type)
     PIL_image_list = list()
@@ -219,17 +231,34 @@ def get_match_img(args, model, AlignCollate_demo, converter,
         PIL_image_list.append(crop_img)
     pred = demo(args, PIL_image_list, model, AlignCollate_demo, converter)
     matching_idx = get_match_idx(pred, gts, args.strict)
-    for p_idx, g_idx in matching_idx:
-        img = PIL_image_list[p_idx]
-        img_gt = gts[g_idx]
-        img_save_path = os.path.join(args.output_path, 'imgs', str(current_cnt) + '.jpg')
-        img.save(img_save_path)
-        gt_save_path = os.path.join(args.output_path, 'gts', str(current_cnt) + '.txt')
-        with open(gt_save_path, 'w', encoding='utf-8') as fp:
-            fp.write(img_gt + '\n')
-        current_cnt += 1
-        match_cnt += 1
-    return match_cnt, current_cnt
+    for p_idx, g_idx, check_res in matching_idx:
+        if check_res == 1:
+            img = PIL_image_list[p_idx]
+            img_gt = gts[g_idx]
+            img_save_path = os.path.join(args.output_path, 'imgs', str(current_cnt) + '.jpg')
+            img.save(img_save_path)
+            gt_save_path = os.path.join(args.output_path, 'gts', str(current_cnt) + '.txt')
+            with open(gt_save_path, 'w', encoding='utf-8') as fp:
+                fp.write(img_gt + '\n')
+            current_cnt += 1
+            match_cnt += 1
+            should_cnt += 1
+        elif check_res == 2:
+            if random.random() < args.hold_acc_prob:
+                img = PIL_image_list[p_idx]
+                img_gt = gts[g_idx]
+                img_save_path = os.path.join(args.output_path, 'imgs', str(current_cnt) + '.jpg')
+                img.save(img_save_path)
+                gt_save_path = os.path.join(args.output_path, 'gts', str(current_cnt) + '.txt')
+                with open(gt_save_path, 'w', encoding='utf-8') as fp:
+                    fp.write(img_gt + '\n')
+                current_cnt += 1
+                match_cnt += 1
+            should_cnt += 1
+            acc_cnt += 1
+        else:
+            raise ValueError('check_res should be 1 or 2')
+    return match_cnt, acc_cnt, should_cnt, current_cnt
 
 
 def init_model(args):
@@ -312,9 +341,12 @@ if __name__ == '__main__':
             continue
         html_gt_path = os.path.splitext(file_path)[0] + '.html'
         print('started from No. {} '.format(cnt), end='')
-        match_cnt, cnt = get_match_img(args, model, AlignCollate_demo, converter,
-                                       file_path, db_result_path, html_gt_path, cnt)
-        print('{} get {} match imgs'.format(file_path, match_cnt))
+        match_cnt, acc_cnt, should_cnt, current_cnt = get_match_img(
+            args, model, AlignCollate_demo, converter, file_path, db_result_path, html_gt_path, cnt
+        )
+        print('{} should get {} imgs, get {} match imgs, {} imgs perfectly right.'.format(
+            file_path, should_cnt, match_cnt, acc_cnt)
+        )
         with open(args.done_path, 'a', encoding='utf-8') as fp:
             fp.write(file_path + '\n')
         with open(args.count_path, 'w', encoding='utf-8') as fp:
