@@ -36,7 +36,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--done_path', type=str, default='result/done.txt')
     parser.add_argument('--count_path', type=str, default='result/count.txt')
-    parser.add_argument('--input_path', type=str, required=True)
+    parser.add_argument('--input_path', type=str, required=True)    # data/DingXiu
     parser.add_argument('--train_output', type=str, default='result/train.txt')
     parser.add_argument('--val_output', type=str, default='result/val.txt')
     parser.add_argument('--val_ratio', type=float, default=0.05)
