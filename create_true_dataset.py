@@ -314,6 +314,7 @@ if __name__ == '__main__':
     else:
         print('load todo_file from {}.'.format(args.todo_file))
         todo_list = [s.rstrip() for s in open(args.todo_file, 'r', encoding='utf-8').readlines()]
+        todo_list = [s for s in todo_list if s not in done]
     print('{} files to do.'.format(len(todo_list)), flush=True)
     if args.shuffle:
         print('shuffle todo files.')
