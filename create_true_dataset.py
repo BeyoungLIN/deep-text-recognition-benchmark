@@ -102,7 +102,11 @@ def get_gt(html_path, type):
     gt = []
     if type == 'dingxiu':
         with open(html_path, 'r', encoding='utf-8') as fp:
-            html_file = fp.read()
+            try:
+                html_file = fp.read()
+            except UnicodeDecodeError:
+                return gt
+
         soup = BeautifulSoup(html_file, 'lxml')
         lines = soup.find_all('div', {'class': 'linespan'})
         for line in lines:
@@ -146,7 +150,7 @@ def demo(args, PIL_image_list, model, AlignCollate_demo, converter):
                 preds = model(image, text_for_pred)
                 # Select max probabilty (greedy decoding) then decode index to character
                 preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-                _, preds_index = preds.max(2)
+                _, preds_index = preds.max(dim=2)
                 # preds_index = preds_index.view(-1)
                 preds_str = converter.decode(preds_index, preds_size)
             else:
