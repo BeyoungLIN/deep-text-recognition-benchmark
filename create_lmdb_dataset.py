@@ -1,9 +1,12 @@
-import fire
-import argparse
+
+
 import os
+import sys
+
+import argparse
 import lmdb
 import cv2
-
+import random
 from tqdm import tqdm
 
 import numpy as np
@@ -155,19 +158,30 @@ def createImagenetDataset(inputPath, outputPath, checkValid=True, map_size=10995
     print('Created dataset with %d samples' % nSamples)
 
 
-def createDataset_ICDAR2019(inputPath, outputPath, checkValid=True, map_size=1099511627776):
+def createDataset_ICDAR2019(inputPath, outputPath, train_and_eval=True, ratio=0.05, checkValid=True, map_size=1099511627776):
     """
     Create LMDB dataset for training and evaluation.
     ARGS:
         inputPath  : input folder path where starts imagePath
         outputPath : LMDB output path
-        gtFile     : list of image path and label
         checkValid : if true, check the validity of every image
     """
     os.makedirs(outputPath, exist_ok=True)
-    env = lmdb.open(outputPath, map_size=map_size)
-    cache = {}
-    cnt = 1
+    if train_and_eval:
+        os.makedirs(os.path.join(outputPath, 'train'), exist_ok=True)
+        os.makedirs(os.path.join(outputPath, 'val'), exist_ok=True)
+
+    if train_and_eval:
+        train_env = lmdb.open(os.path.join(outputPath, 'train'), map_size=map_size)
+        val_env = lmdb.open(os.path.join(outputPath, 'val'), map_size=map_size)
+        train_cache = {}
+        val_cache = {}
+        train_cnt = 1
+        val_cnt = 1
+    else:
+        env = lmdb.open(outputPath, map_size=map_size)
+        cache = {}
+        cnt = 1
 
     img_list = []
     label_list = []
@@ -210,20 +224,54 @@ def createDataset_ICDAR2019(inputPath, outputPath, checkValid=True, map_size=109
         with open(labelPath, 'r', encoding='utf-8') as fp:
             label = fp.readline().rstrip()
 
-        imageKey = 'image-%09d'.encode() % cnt
-        labelKey = 'label-%09d'.encode() % cnt
-        cache[imageKey] = imageBin
-        cache[labelKey] = label.encode()
+        if train_and_eval:
+            if random.random() > ratio:
+                imageKey = 'image-%09d'.encode() % train_cnt
+                labelKey = 'label-%09d'.encode() % train_cnt
+                train_cache[imageKey] = imageBin
+                train_cache[labelKey] = label.encode()
 
-        if cnt % 1000 == 0:
-            writeCache(env, cache)
-            cache = {}
-            print('Written %d / %d' % (cnt, nSamples))
-        cnt += 1
-    nSamples = cnt - 1
-    cache['num-samples'.encode()] = str(nSamples).encode()
-    writeCache(env, cache)
-    print('Created dataset with %d samples' % nSamples)
+                if train_cnt % 1000 == 0:
+                    writeCache(train_env, train_cache)
+                    train_cache = {}
+                    print('Written %d in train set' % (train_cnt))
+                train_cnt += 1
+            else:
+                imageKey = 'image-%09d'.encode() % val_cnt
+                labelKey = 'label-%09d'.encode() % val_cnt
+                val_cache[imageKey] = imageBin
+                val_cache[labelKey] = label.encode()
+
+                if val_cnt % 1000 == 0:
+                    writeCache(val_env, val_cache)
+                    val_cache = {}
+                    print('Written %d in val set' % val_cnt)
+                val_cnt += 1
+        else:
+            imageKey = 'image-%09d'.encode() % cnt
+            labelKey = 'label-%09d'.encode() % cnt
+            cache[imageKey] = imageBin
+            cache[labelKey] = label.encode()
+
+            if cnt % 1000 == 0:
+                writeCache(env, cache)
+                cache = {}
+                print('Written %d / %d' % (cnt, nSamples))
+            cnt += 1
+    if train_and_eval:
+        nSamples = train_cnt - 1
+        train_cache['num-samples'.encode()] = str(nSamples).encode()
+        writeCache(train_env, train_cache)
+        print('Created train dataset with %d samples' % nSamples)
+        nSamples = val_cnt - 1
+        val_cache['num-samples'.encode()] = str(nSamples).encode()
+        writeCache(val_env, val_cache)
+        print('Created train dataset with %d samples' % nSamples)
+    else:
+        nSamples = cnt - 1
+        cache['num-samples'.encode()] = str(nSamples).encode()
+        writeCache(env, cache)
+        print('Created dataset with %d samples' % nSamples)
 
 
 def parse_args():
