@@ -4,6 +4,8 @@ import os
 import lmdb
 import cv2
 
+from tqdm import tqdm
+
 import numpy as np
 
 
@@ -90,7 +92,6 @@ def createImagenetDataset(inputPath, outputPath, checkValid=True, map_size=10995
     Create LMDB dataset for Imagenet type single char images' dataset.
     ARGS:
         inputPath  : input folder path where starts imagePath
-        charsetPath: charset txt path
         outputPath : LMDB output path
         checkValid : if true, check the validity of every image
     """
@@ -154,9 +155,80 @@ def createImagenetDataset(inputPath, outputPath, checkValid=True, map_size=10995
     print('Created dataset with %d samples' % nSamples)
 
 
+def createDataset_ICDAR2019(inputPath, outputPath, checkValid=True, map_size=1099511627776):
+    """
+    Create LMDB dataset for training and evaluation.
+    ARGS:
+        inputPath  : input folder path where starts imagePath
+        outputPath : LMDB output path
+        gtFile     : list of image path and label
+        checkValid : if true, check the validity of every image
+    """
+    os.makedirs(outputPath, exist_ok=True)
+    env = lmdb.open(outputPath, map_size=map_size)
+    cache = {}
+    cnt = 1
+
+    img_list = []
+    label_list = []
+
+    for root, dirs, files in os.walk(inputPath):
+        for file in files:
+            filename, ext = os.path.splitext(file)
+            if ext in IMG_EXTENSIONS:
+                img_list.append(os.path.join(root, file))
+                label_list.append(os.path.join(root, filename + '.txt'))
+
+    nSamples = len(img_list)
+    for i in tqdm(range(nSamples)):
+        imagePath = img_list[i]
+        labelPath = label_list[i]
+
+        # # only use alphanumeric data
+        # if re.search('[^a-zA-Z0-9]', label):
+        #     continue
+
+        if not os.path.exists(imagePath):
+            print('%s does not exist' % imagePath)
+            continue
+        if not os.path.exists(labelPath):
+            print('%s does not exits' % labelPath)
+
+        with open(imagePath, 'rb') as f:
+            imageBin = f.read()
+        if checkValid:
+            try:
+                if not checkImageIsValid(imageBin):
+                    print('%s is not a valid image' % imagePath)
+                    continue
+            except:
+                print('error occured', i)
+                with open(outputPath + '/error_image_log.txt', 'a') as log:
+                    log.write('%s-th image data occured error\n' % str(i))
+                continue
+
+        with open(labelPath, 'r', encoding='utf-8') as fp:
+            label = fp.readline().rstrip()
+
+        imageKey = 'image-%09d'.encode() % cnt
+        labelKey = 'label-%09d'.encode() % cnt
+        cache[imageKey] = imageBin
+        cache[labelKey] = label.encode()
+
+        if cnt % 1000 == 0:
+            writeCache(env, cache)
+            cache = {}
+            print('Written %d / %d' % (cnt, nSamples))
+        cnt += 1
+    nSamples = cnt - 1
+    cache['num-samples'.encode()] = str(nSamples).encode()
+    writeCache(env, cache)
+    print('Created dataset with %d samples' % nSamples)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--type', required=True, choices=['normal', 'imagenet'],
+    parser.add_argument('--type', required=True, choices=['normal', 'imagenet', 'icdar2019'],
                         help='normal(imgs & gt_file) or imagenet(imgs in dirs)')
     parser.add_argument('--input_path', type=str, required=True, help='input folder path where starts imagePath')
     parser.add_argument('--gt_path', type=str, help='list of image path and label')
@@ -174,5 +246,7 @@ if __name__ == '__main__':
         createDataset(args.input_path, args.gt_path, args.output_path, args.check_valid, args.map_size)
     elif args.type == 'imagenet':
         createImagenetDataset(args.input_path, args.output_path, args.check_valid, args.map_size)
+    elif args.type == 'icdar2019':
+        createDataset_ICDAR2019(args.input_path, args.output_path, args.check_valid, args.map_size)
     else:
         raise ValueError('type should be normal or imagenet.')
