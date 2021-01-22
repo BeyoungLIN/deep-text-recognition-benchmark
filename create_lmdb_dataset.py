@@ -295,6 +295,6 @@ if __name__ == '__main__':
     elif args.type == 'imagenet':
         createImagenetDataset(args.input_path, args.output_path, args.check_valid, args.map_size)
     elif args.type == 'icdar2019':
-        createDataset_ICDAR2019(args.input_path, args.output_path, args.check_valid, args.map_size)
+        createDataset_ICDAR2019(args.input_path, args.output_path, checkValid=args.check_valid, map_size=args.map_size)
     else:
         raise ValueError('type should be normal or imagenet.')
