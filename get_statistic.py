@@ -16,6 +16,7 @@ import json
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', required=True, type=str)
+    parser.add_argument('--single',action='store_true')
     args = parser.parse_args()
     return args
 
@@ -35,11 +36,14 @@ def get_lmdb_statistics(root):
 
 if __name__ == '__main__':
     args = parse_args()
-    total_length_map = defaultdict(int)
-    for lmdb_root in os.listdir(args.path):
-        length_map = get_lmdb_statistics(os.path.join(args.path, lmdb_root))
-        for k, v in length_map.items():
-            total_length_map[k] += v
+    if args.single:
+        total_length_map = get_lmdb_statistics(args.path)
+    else:
+        total_length_map = defaultdict(int)
+        for lmdb_root in os.listdir(args.path):
+            length_map = get_lmdb_statistics(os.path.join(args.path, lmdb_root))
+            for k, v in length_map.items():
+                total_length_map[k] += v
 
     print(total_length_map)
     with open('./result/extract.json', 'w', encoding='utf-8') as fp:
