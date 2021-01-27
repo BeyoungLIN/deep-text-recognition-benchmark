@@ -7,6 +7,8 @@ import sys
 import argparse
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from pprint import pprint
+from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -18,13 +20,14 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     length_map = defaultdict(int)
-    for file in os.listdir(args.path):
+    for file in tqdm(os.listdir(args.path)):
         name, ext = os.path.splitext(file)
         if ext.lower() != '.txt':
             continue
         with open(os.path.join(args.path, file), 'r', encoding='utf-8') as fp:
             s = fp.readline().rstrip()
             length_map[len(s)] += 1
+    pprint(length_map)
     keys = length_map.keys()
     max_length = max(*keys)
     x = [_ for _ in range(1, max_length+1)]
