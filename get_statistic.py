@@ -10,6 +10,8 @@ from collections import defaultdict
 from pprint import pprint
 from tqdm import tqdm
 import lmdb
+import json
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -38,7 +40,11 @@ if __name__ == '__main__':
         length_map = get_lmdb_statistics(os.path.join(args.path, lmdb_root))
         for k, v in length_map.items():
             total_length_map[k] += v
-    pprint(total_length_map)
+
+    print(total_length_map)
+    with open('./result/extract.json', 'w', encoding='utf-8') as fp:
+        json.dump(total_length_map, fp, ensure_ascii=False)
+
     max_length = max(total_length_map.keys())
     x = [_ for _ in range(1, max_length+1)]
     y = [total_length_map[_] for _ in range(1, max_length+1)]
