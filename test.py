@@ -195,7 +195,7 @@ def validation(model, criterion, evaluation_loader, converter, opt):
 def validation_by_length(model, criterion, evaluation_loader, converter, opt):
     """ validation or evaluation """
     n_correct = defaultdict(float)
-    norm_ED = defaultdict(float)
+    n_norm_ED = defaultdict(float)
     length_of_data = defaultdict(int)
     infer_time = 0
     valid_loss_avg = Averager()
@@ -276,11 +276,11 @@ def validation_by_length(model, criterion, evaluation_loader, converter, opt):
 
             # ICDAR2019 Normalized Edit Distance
             if len(gt) == 0 or len(pred) == 0:
-                norm_ED[len(gt)] += 0
+                n_norm_ED[len(gt)] += 0
             elif len(gt) > len(pred):
-                norm_ED[len(gt)] += 1 - edit_distance(pred, gt) / len(gt)
+                n_norm_ED[len(gt)] += 1 - edit_distance(pred, gt) / len(gt)
             else:
-                norm_ED[len(gt)] += 1 - edit_distance(pred, gt) / len(pred)
+                n_norm_ED[len(gt)] += 1 - edit_distance(pred, gt) / len(pred)
 
             # calculate confidence score (= multiply of pred_max_prob)
             try:
@@ -297,7 +297,7 @@ def validation_by_length(model, criterion, evaluation_loader, converter, opt):
     norm_ED = defaultdict(float)
     for k in n_correct.keys():
         accuracy[k] = n_correct[k] / float(length_of_data[k]) * 100
-        norm_ED[k] = norm_ED[k] / float(length_of_data[k]) * 100
+        norm_ED[k] = n_norm_ED[k] / float(length_of_data[k]) * 100
 
     return valid_loss_avg.val(), accuracy, norm_ED, preds_str, confidence_score_list, labels, infer_time, length_of_data
 
