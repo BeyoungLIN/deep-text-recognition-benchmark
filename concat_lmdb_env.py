@@ -38,7 +38,7 @@ def get_cnt(env):
             cnt = nSamples
         print(f'out_cnt start from {cnt}')
     except lmdb.NotFoundError:
-        cnt = 1
+        cnt = 0
     return cnt
 
 
