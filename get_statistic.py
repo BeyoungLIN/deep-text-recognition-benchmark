@@ -54,8 +54,9 @@ if __name__ == '__main__':
     y = [total_length_map[_] for _ in range(1, max_length+1)]
 
     plt.figure()
-    plt.hist(y)
+    plt.bar(x, height=y)
     plt.grid(True)
     plt.xlabel('length')
     plt.ylabel('count')
     plt.savefig('./statictics.png')
+    plt.show()
