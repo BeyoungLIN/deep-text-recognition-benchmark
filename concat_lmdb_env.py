@@ -35,7 +35,7 @@ def get_cnt(env):
     try:
         with env.begin(write=False) as txn:
             nSamples = int(txn.get('num-samples'.encode(), default=0))
-            cnt = nSamples + 1
+            cnt = nSamples
         print(f'out_cnt start from {cnt}')
     except lmdb.NotFoundError:
         cnt = 1
