@@ -1,7 +1,8 @@
 import torch.nn as nn
 
 from modules.transformation import TPS_SpatialTransformerNetwork
-from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor
+from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor, \
+    ResNet50_FeatureExtractor, ResNet100_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
 
@@ -32,6 +33,10 @@ class Model(nn.Module):
             self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResNet':
             self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
+        elif opt.FeatureExtraction == 'ResNet50':
+            self.FeatureExtraction = ResNet50_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
+        elif opt.FeatureExtraction == 'ResNet100':
+            self.FeatureExtraction = ResNet100_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
         else:
             raise Exception('No FeatureExtraction module specified')
         self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
