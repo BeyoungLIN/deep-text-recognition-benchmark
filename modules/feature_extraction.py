@@ -353,14 +353,16 @@ class ResNet_Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.layer1 = self._make_layer(block, self.output_channel_block[0], layers[0])
-        self.conv1 = nn.Conv2d(self.output_channel_block[0] * block.expansion, self.output_channel_block[0] * block.expansion,
+        self.layer1 = self._make_layer(block, self.output_channel_block[0], layers[0], stride=1)
+        self.conv1 = nn.Conv2d(self.output_channel_block[0] * block.expansion,
+                               self.output_channel_block[0] * block.expansion,
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.output_channel_block[0] * block.expansion)
 
         self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.layer2 = self._make_layer(block, self.output_channel_block[1], layers[1], stride=1)
-        self.conv2 = nn.Conv2d(self.output_channel_block[1] * block.expansion, self.output_channel_block[1] * block.expansion,
+        self.conv2 = nn.Conv2d(self.output_channel_block[1] * block.expansion,
+                               self.output_channel_block[1] * block.expansion,
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(self.output_channel_block[1] * block.expansion)
 
@@ -370,21 +372,25 @@ class ResNet_Bottleneck(nn.Module):
             self.maxpool3 = nn.MaxPool2d(kernel_size=2, stride=(1, 2), padding=(1, 0))
 
         self.layer3 = self._make_layer(block, self.output_channel_block[2], layers[2], stride=1)
-        self.conv3 = nn.Conv2d(self.output_channel_block[2] * block.expansion, self.output_channel_block[2] * block.expansion,
+        self.conv3 = nn.Conv2d(self.output_channel_block[2] * block.expansion,
+                               self.output_channel_block[2] * block.expansion,
                                kernel_size=3, stride=1, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.output_channel_block[2] * block.expansion)
 
         self.layer4 = self._make_layer(block, self.output_channel_block[3], layers[3], stride=1)
 
         if self.page_orient == 'horizontal':
-            self.conv4_1 = nn.Conv2d(self.output_channel_block[3] * block.expansion, self.output_channel_block[3] * block.expansion,
+            self.conv4_1 = nn.Conv2d(self.output_channel_block[3] * block.expansion,
+                                     self.output_channel_block[3] * block.expansion,
                                      kernel_size=2, stride=(2, 1), padding=(0, 1), bias=False)
         elif self.page_orient == 'vertical':
-            self.conv4_1 = nn.Conv2d(self.output_channel_block[3] * block.expansion, self.output_channel_block[3] * block.expansion,
+            self.conv4_1 = nn.Conv2d(self.output_channel_block[3] * block.expansion,
+                                     self.output_channel_block[3] * block.expansion,
                                      kernel_size=2, stride=(1, 2), padding=(1, 0), bias=False)
 
         self.bn4_1 = nn.BatchNorm2d(self.output_channel_block[3] * block.expansion)
-        self.conv4_2 = nn.Conv2d(self.output_channel_block[3] * block.expansion, self.output_channel_block[3],
+        self.conv4_2 = nn.Conv2d(self.output_channel_block[3] * block.expansion,
+                                 self.output_channel_block[3],
                                  kernel_size=2, stride=1, padding=0, bias=False)
         self.bn4_2 = nn.BatchNorm2d(self.output_channel_block[3])
 
