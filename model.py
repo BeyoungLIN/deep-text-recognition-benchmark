@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from modules.transformation import TPS_SpatialTransformerNetwork
 from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtractor, ResNet_FeatureExtractor, \
-    ResNet50_FeatureExtractor, ResNet100_FeatureExtractor
+    ResNet29_FeatureExtractor, ResNet50_FeatureExtractor, ResNet100_FeatureExtractor
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
 
@@ -33,6 +33,8 @@ class Model(nn.Module):
             self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResNet':
             self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
+        elif opt.FeatureExtraction == 'ResNet29':
+            self.FeatureExtraction = ResNet29_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
         elif opt.FeatureExtraction == 'ResNet50':
             self.FeatureExtraction = ResNet50_FeatureExtractor(opt.input_channel, opt.output_channel, opt.page_orient)
         elif opt.FeatureExtraction == 'ResNet100':
