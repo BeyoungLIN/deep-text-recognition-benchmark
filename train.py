@@ -31,7 +31,8 @@ def train(opt):
     train_dataset = Batch_Balanced_Dataset(opt)
 
     log = open(f'./saved_models/{opt.exp_name}/log_dataset.txt', 'a', encoding='utf-8')
-    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+    # AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+    AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, augment=False)
     valid_dataset, valid_dataset_log = hierarchical_dataset(root=opt.valid_data, opt=opt)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=opt.batch_size,
@@ -244,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--imgH', type=int, default=32, help='the height of the input image')
     parser.add_argument('--imgW', type=int, default=100, help='the width of the input image')
     parser.add_argument('--rgb', action='store_true', help='use rgb input')
+    parser.add_argument('--augment', action='store_true', help='Use ocrodeg image augment')
     parser.add_argument('--character', type=str,
                         default='0123456789abcdefghijklmnopqrstuvwxyz', help='CN-s, CN-m, CN-l, or raw character label')
     parser.add_argument('--sensitive', action='store_true', help='for sensitive character mode')

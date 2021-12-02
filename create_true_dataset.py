@@ -327,7 +327,7 @@ if __name__ == '__main__':
         with open('charset/charset_' + size + '.txt', 'r', encoding='utf-8') as chars:
             charset = [c.strip() for c in chars]
         charset = ''.join(charset)
-        args.character = charset
+        args.character = charset  # 全字集
     elif args.sensitive:
         # opt.character += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         args.character = string.printable[:-6]  # same with ASTER setting (use 94 char).

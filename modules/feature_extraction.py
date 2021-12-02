@@ -65,6 +65,18 @@ class ResNet_FeatureExtractor(nn.Module):
         return self.ConvNet(input)
 
 
+class ResNet29_FeatureExtractor(nn.Module):
+    """ FeatureExtractor of FAN (http://openaccess.thecvf.com/content_ICCV_2017/papers/Cheng_Focusing_Attention_Towards_ICCV_2017_paper.pdf) """
+
+    def __init__(self, input_channel, output_channel=512, page_orient='horizontal'):
+        super(ResNet29_FeatureExtractor, self).__init__()
+        self.page_orient = page_orient
+        self.ConvNet = ResNet_Bottleneck(input_channel, output_channel, Bottleneck, [1, 2, 5, 3], page_orient)
+
+    def forward(self, input):
+        return self.ConvNet(input)
+
+
 class ResNet50_FeatureExtractor(nn.Module):
     """ FeatureExtractor of FAN (http://openaccess.thecvf.com/content_ICCV_2017/papers/Cheng_Focusing_Attention_Towards_ICCV_2017_paper.pdf) """
 
