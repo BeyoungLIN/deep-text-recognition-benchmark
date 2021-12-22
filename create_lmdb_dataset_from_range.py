@@ -1,6 +1,6 @@
 import random
 
-import fire
+# import fire
 import argparse
 import os
 import lmdb
