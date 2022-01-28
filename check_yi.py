@@ -45,7 +45,6 @@ def find_yi_list_one_file(file_path):
     return res_list
 
 
-
 if __name__ == '__main__':
     # path = '/Users/Beyoung/Desktop/Projects/corpus/test/'
     # path = '/home/euphoria/deep-text-recognition-benchmark/dataset/DingXiu_train_output/gts'
